@@ -16,7 +16,7 @@ interface FavoritesState {
   favorites: string[];
   addFavorite: (basketId: string) => void;
   removeFavorite: (basketId: string) => void;
-  toggleFavorite: (basketId: string) => void;
+  toggleFavorite: (basketId: string) => Promise<void>;
   setFavorites: (basketIds: string[]) => void;
   isFavorite: (basketId: string) => boolean;
 }
@@ -60,12 +60,30 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ favorites: get().favorites.filter((id) => id !== basketId) });
   },
 
-  toggleFavorite: (basketId: string) => {
-    const current = get().favorites;
-    if (current.includes(basketId)) {
-      set({ favorites: current.filter((id) => id !== basketId) });
-    } else {
-      set({ favorites: [...current, basketId] });
+  toggleFavorite: async (basketId: string) => {
+    const { user, favorites } = get();
+    const isCurrentlyFav = favorites.includes(basketId);
+
+    // Optimistic update — instant UI feedback
+    set({
+      favorites: isCurrentlyFav
+        ? favorites.filter((id) => id !== basketId)
+        : [...favorites, basketId],
+    });
+
+    // Sync to Supabase in background (fire-and-forget)
+    if (user) {
+      if (isCurrentlyFav) {
+        await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('basket_id', basketId);
+      } else {
+        await supabase
+          .from('favorites')
+          .insert({ user_id: user.id, basket_id: basketId });
+      }
     }
   },
 
