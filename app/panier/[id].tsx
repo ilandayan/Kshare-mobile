@@ -35,7 +35,7 @@ async function fetchBasket(id: string): Promise<Basket | null> {
     .single();
 
   if (error) return null;
-  return data as Basket;
+  return data as unknown as Basket;
 }
 
 function formatTime(isoString: string) {

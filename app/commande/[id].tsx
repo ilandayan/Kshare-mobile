@@ -35,7 +35,7 @@ async function fetchOrder(id: string): Promise<Order | null> {
     .single();
 
   if (error) return null;
-  return data as Order;
+  return data as unknown as Order;
 }
 
 const STATUS_INFO = {

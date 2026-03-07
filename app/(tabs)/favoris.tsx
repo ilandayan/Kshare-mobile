@@ -42,7 +42,7 @@ async function fetchFavoriteBaskets(userId: string): Promise<Basket[]> {
     .eq('status', 'published');
 
   if (error) throw error;
-  return (data ?? []) as Basket[];
+  return (data ?? []) as unknown as Basket[];
 }
 
 export default function FavorisPage() {

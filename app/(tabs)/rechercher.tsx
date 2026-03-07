@@ -37,7 +37,7 @@ async function fetchAllBaskets(): Promise<Basket[]> {
     .limit(60);
 
   if (error) throw error;
-  return (data ?? []) as Basket[];
+  return (data ?? []) as unknown as Basket[];
 }
 
 export default function RechercherPage() {

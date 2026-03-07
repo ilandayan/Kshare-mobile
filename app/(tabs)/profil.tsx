@@ -43,12 +43,14 @@ async function fetchStats(userId: string): Promise<Stats> {
 
   if (error || !data) return { totalOrders: 0, totalSaved: 0, co2Saved: 0 };
 
-  const totalOrders = data.length;
-  const totalSaved = data.reduce((sum: number, o: { amount_paid: number; baskets: { original_price: number } | null }) => {
+  type OrderRow = { amount_paid: number; baskets: { original_price: number } | null };
+  const rows = data as unknown as OrderRow[];
+  const totalOrders = rows.length;
+  const totalSaved = rows.reduce((sum: number, o: OrderRow) => {
     const originalPrice = o.baskets?.original_price ?? 0;
     return sum + (originalPrice - o.amount_paid);
   }, 0);
-  const co2Saved = totalOrders * 2.5;
+  const co2Saved = rows.length * 2.5;
 
   return { totalOrders, totalSaved, co2Saved };
 }
