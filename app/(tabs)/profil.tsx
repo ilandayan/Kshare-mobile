@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
-  StyleSheet,
   ScrollView,
+  TouchableOpacity,
+  Switch,
+  StyleSheet,
   Alert,
   ActivityIndicator,
   Platform,
@@ -17,84 +18,120 @@ import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import type { UserProfile } from '@/lib/types';
 
-interface Stats {
-  totalOrders: number;
-  totalSaved: number;
-  co2Saved: number; // kg, estimated ~2.5 kg CO2 per basket
-}
-
+// ── Fetch ─────────────────────────────────────────────────────────────────────
 async function fetchProfile(userId: string): Promise<UserProfile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, first_name, last_name, role, avatar_url, created_at')
+    .select('id, email, first_name, last_name, phone, role, avatar_url, created_at')
     .eq('id', userId)
     .single();
-
   if (error) return null;
   return data as UserProfile;
 }
 
-async function fetchStats(userId: string): Promise<Stats> {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('amount_paid, baskets(original_price)')
-    .eq('user_id', userId)
-    .eq('status', 'picked_up');
-
-  if (error || !data) return { totalOrders: 0, totalSaved: 0, co2Saved: 0 };
-
-  type OrderRow = { amount_paid: number; baskets: { original_price: number } | null };
-  const rows = data as unknown as OrderRow[];
-  const totalOrders = rows.length;
-  const totalSaved = rows.reduce((sum: number, o: OrderRow) => {
-    const originalPrice = o.baskets?.original_price ?? 0;
-    return sum + (originalPrice - o.amount_paid);
-  }, 0);
-  const co2Saved = rows.length * 2.5;
-
-  return { totalOrders, totalSaved, co2Saved };
+function getInitials(profile: UserProfile | null, email: string | undefined): string {
+  if (!profile) return (email?.[0] ?? '?').toUpperCase();
+  const f = profile.first_name?.[0] ?? '';
+  const l = profile.last_name?.[0] ?? '';
+  return (f + l).toUpperCase() || (profile.email?.[0] ?? '?').toUpperCase();
 }
 
-function getInitials(profile: UserProfile | null): string {
-  if (!profile) return '?';
-  const first = profile.first_name?.[0] ?? '';
-  const last = profile.last_name?.[0] ?? '';
-  return (first + last).toUpperCase() || profile.email[0].toUpperCase();
-}
+// ── Row components ─────────────────────────────────────────────────────────────
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-function StatCard({
-  emoji,
-  value,
+function ProfileRow({
+  icon,
   label,
+  value,
+  onPress,
+  last = false,
 }: {
-  emoji: string;
-  value: string;
+  icon: IoniconName;
   label: string;
+  value?: string;
+  onPress?: () => void;
+  last?: boolean;
 }) {
   return (
-    <View style={styles.statCard}>
-      <Text style={styles.statEmoji}>{emoji}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    <>
+      <TouchableOpacity
+        style={styles.row}
+        onPress={onPress}
+        activeOpacity={onPress ? 0.7 : 1}
+      >
+        <View style={styles.rowLeft}>
+          <View style={styles.rowIconWrap}>
+            <Ionicons name={icon} size={18} color="#6B7280" />
+          </View>
+          <View style={styles.rowContent}>
+            <Text style={styles.rowLabel}>{label}</Text>
+            {value !== undefined && (
+              <Text style={styles.rowValue} numberOfLines={1}>{value}</Text>
+            )}
+          </View>
+        </View>
+        {onPress && (
+          <Ionicons name="chevron-forward" size={16} color="#D1D5DB" />
+        )}
+      </TouchableOpacity>
+      {!last && <View style={styles.rowDivider} />}
+    </>
   );
 }
 
+function ToggleRow({
+  icon,
+  label,
+  value,
+  onChange,
+  last = false,
+}: {
+  icon: IoniconName;
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  last?: boolean;
+}) {
+  return (
+    <>
+      <View style={styles.row}>
+        <View style={styles.rowLeft}>
+          <View style={styles.rowIconWrap}>
+            <Ionicons name={icon} size={18} color="#6B7280" />
+          </View>
+          <Text style={[styles.rowLabel, { marginLeft: 0 }]}>{label}</Text>
+        </View>
+        <Switch
+          value={value}
+          onValueChange={onChange}
+          trackColor={{ false: '#D1D5DB', true: '#111827' }}
+          thumbColor={Platform.OS === 'ios' ? undefined : '#fff'}
+          ios_backgroundColor="#D1D5DB"
+        />
+      </View>
+      {!last && <View style={styles.rowDivider} />}
+    </>
+  );
+}
+
+// ── Main screen ───────────────────────────────────────────────────────────────
 export default function ProfilPage() {
   const { user, signOut } = useAppStore();
   const [signingOut, setSigningOut] = useState(false);
+  const [notifEmail, setNotifEmail] = useState(false);
+  const [notifPush, setNotifPush] = useState(true);
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
+  const { data: profile, isLoading } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: () => (user?.id ? fetchProfile(user.id) : Promise.resolve(null)),
     enabled: !!user?.id,
   });
 
-  const { data: stats } = useQuery({
-    queryKey: ['stats', user?.id],
-    queryFn: () => (user?.id ? fetchStats(user.id) : Promise.resolve({ totalOrders: 0, totalSaved: 0, co2Saved: 0 })),
-    enabled: !!user?.id,
-  });
+  const fullName = profile
+    ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
+    : '';
+  const email = profile?.email ?? user?.email ?? '';
+  const initials = getInitials(profile ?? null, user?.email);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -103,7 +140,7 @@ export default function ProfilPage() {
       [
         { text: 'Annuler', style: 'cancel' },
         {
-          text: 'Déconnexion',
+          text: 'Se déconnecter',
           style: 'destructive',
           onPress: async () => {
             setSigningOut(true);
@@ -114,156 +151,120 @@ export default function ProfilPage() {
     );
   };
 
-  const fullName = profile
-    ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
-    : null;
-
-  const memberSince = profile?.created_at
-    ? new Date(profile.created_at).toLocaleDateString('fr-FR', {
-        month: 'long',
-        year: 'numeric',
-      })
-    : null;
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="dark" />
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header profil */}
+
+        {/* ── Avatar + name ── */}
         <View style={styles.profileHeader}>
-          <View style={styles.avatarContainer}>
-            <Text style={styles.avatarText}>
-              {profileLoading ? '...' : getInitials(profile ?? null)}
-            </Text>
+          <View style={styles.avatarCircle}>
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.avatarText}>{initials}</Text>
+            )}
           </View>
-          {fullName && <Text style={styles.fullName}>{fullName}</Text>}
-          <Text style={styles.email}>{profile?.email ?? user?.email ?? ''}</Text>
-          {memberSince && (
-            <Text style={styles.memberSince}>Membre depuis {memberSince}</Text>
-          )}
-        </View>
-
-        {/* Statistiques */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Mes statistiques</Text>
-          <View style={styles.statsGrid}>
-            <StatCard
-              emoji="🛍️"
-              value={String(stats?.totalOrders ?? 0)}
-              label="Paniers achetés"
-            />
-            <StatCard
-              emoji="💰"
-              value={`${(stats?.totalSaved ?? 0).toFixed(0)} €`}
-              label="Économisés"
-            />
-            <StatCard
-              emoji="🌿"
-              value={`${(stats?.co2Saved ?? 0).toFixed(1)} kg`}
-              label="CO₂ évité"
-            />
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>{fullName || email}</Text>
+            <Text style={styles.profileEmail}>{email}</Text>
           </View>
         </View>
 
-        {/* Menu */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Mon compte</Text>
-          <View style={styles.menuCard}>
-            <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-              <View style={styles.menuLeft}>
-                <View style={[styles.menuIcon, { backgroundColor: '#eff6ff' }]}>
-                  <Ionicons name="person-outline" size={18} color="#3b82f6" />
-                </View>
-                <Text style={styles.menuText}>Modifier mon profil</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#d1d5db" />
-            </TouchableOpacity>
-
-            <View style={styles.menuDivider} />
-
-            <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-              <View style={styles.menuLeft}>
-                <View style={[styles.menuIcon, { backgroundColor: '#f0fdf4' }]}>
-                  <Ionicons name="notifications-outline" size={18} color="#22c55e" />
-                </View>
-                <Text style={styles.menuText}>Notifications</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#d1d5db" />
-            </TouchableOpacity>
-
-            <View style={styles.menuDivider} />
-
-            <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-              <View style={styles.menuLeft}>
-                <View style={[styles.menuIcon, { backgroundColor: '#fef2f2' }]}>
-                  <Ionicons name="lock-closed-outline" size={18} color="#ef4444" />
-                </View>
-                <Text style={styles.menuText}>Sécurité</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#d1d5db" />
-            </TouchableOpacity>
-          </View>
+        {/* ── Section COMPTE ── */}
+        <Text style={styles.sectionLabel}>COMPTE</Text>
+        <View style={styles.card}>
+          <ProfileRow
+            icon="person-outline"
+            label="Nom et prénom"
+            value={fullName || '—'}
+            onPress={() => {}}
+          />
+          <ProfileRow
+            icon="mail-outline"
+            label="Email"
+            value={email}
+            onPress={() => {}}
+          />
+          <ProfileRow
+            icon="call-outline"
+            label="Téléphone"
+            value={profile?.phone ?? '—'}
+            onPress={() => {}}
+          />
+          <ProfileRow
+            icon="card-outline"
+            label="Paiement"
+            value="•••• 4242"
+            onPress={() => {}}
+            last
+          />
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informations</Text>
-          <View style={styles.menuCard}>
-            <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-              <View style={styles.menuLeft}>
-                <View style={[styles.menuIcon, { backgroundColor: '#f3f4f6' }]}>
-                  <Ionicons name="document-text-outline" size={18} color="#6b7280" />
-                </View>
-                <Text style={styles.menuText}>Conditions Générales</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#d1d5db" />
-            </TouchableOpacity>
-
-            <View style={styles.menuDivider} />
-
-            <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-              <View style={styles.menuLeft}>
-                <View style={[styles.menuIcon, { backgroundColor: '#f3f4f6' }]}>
-                  <Ionicons name="shield-outline" size={18} color="#6b7280" />
-                </View>
-                <Text style={styles.menuText}>Politique de confidentialité</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#d1d5db" />
-            </TouchableOpacity>
-
-            <View style={styles.menuDivider} />
-
-            <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-              <View style={styles.menuLeft}>
-                <View style={[styles.menuIcon, { backgroundColor: '#f3f4f6' }]}>
-                  <Ionicons name="information-circle-outline" size={18} color="#6b7280" />
-                </View>
-                <Text style={styles.menuText}>À propos</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#d1d5db" />
-            </TouchableOpacity>
-          </View>
+        {/* ── Section PRÉFÉRENCES ── */}
+        <Text style={styles.sectionLabel}>PRÉFÉRENCES</Text>
+        <View style={styles.card}>
+          <ToggleRow
+            icon="notifications-outline"
+            label="Notifications email"
+            value={notifEmail}
+            onChange={setNotifEmail}
+          />
+          <ToggleRow
+            icon="notifications-outline"
+            label="Notifications push"
+            value={notifPush}
+            onChange={setNotifPush}
+            last
+          />
         </View>
 
-        {/* Déconnexion */}
-        <View style={styles.section}>
+        {/* ── Section PLUS ── */}
+        <Text style={styles.sectionLabel}>PLUS</Text>
+        <View style={styles.card}>
+          <ProfileRow
+            icon="people-outline"
+            label="Parrainer un ami"
+            onPress={() => {}}
+          />
+          <ProfileRow
+            icon="storefront-outline"
+            label="Devenir partenaire"
+            onPress={() => {}}
+          />
+          <ProfileRow
+            icon="share-social-outline"
+            label="Recommander un commerce"
+            onPress={() => {}}
+          />
+          <ProfileRow
+            icon="help-circle-outline"
+            label="Aide et support"
+            onPress={() => {}}
+            last
+          />
+        </View>
+
+        {/* ── Logout ── */}
+        <View style={styles.logoutSection}>
           <TouchableOpacity
-            style={[styles.signOutButton, signingOut && styles.signOutButtonDisabled]}
+            style={styles.logoutBtn}
             onPress={handleSignOut}
             disabled={signingOut}
-            activeOpacity={0.85}
+            activeOpacity={0.8}
           >
             {signingOut ? (
-              <ActivityIndicator color="#ef4444" size="small" />
+              <ActivityIndicator color="#EF4444" size="small" />
             ) : (
               <>
-                <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-                <Text style={styles.signOutText}>Se déconnecter</Text>
+                <Ionicons name="log-out-outline" size={18} color="#EF4444" />
+                <Text style={styles.logoutText}>Se déconnecter</Text>
               </>
             )}
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 32 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -272,98 +273,66 @@ export default function ProfilPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#F4F5F9',
   },
+
+  // Profile header
   profileHeader: {
-    backgroundColor: '#ffffff',
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 24,
-    paddingBottom: 28,
-    paddingHorizontal: 24,
+    gap: 14,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: '#F3F4F6',
+    marginBottom: 24,
   },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#3b82f6',
+  avatarCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#3744C8',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    flexShrink: 0,
   },
   avatarText: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#ffffff',
+    color: '#fff',
   },
-  fullName: {
-    fontSize: 20,
-    fontWeight: '800',
+  profileInfo: {
+    gap: 3,
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: '700',
     color: '#111827',
   },
-  email: {
-    fontSize: 14,
-    color: '#6b7280',
+  profileEmail: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+
+  // Section label
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    paddingHorizontal: 20,
+    marginBottom: 8,
     marginTop: 4,
   },
-  memberSince: {
-    fontSize: 12,
-    color: '#9ca3af',
-    marginTop: 6,
-  },
-  section: {
-    marginTop: 24,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#9ca3af',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#ffffff',
+
+  // Card
+  card: {
+    backgroundColor: '#fff',
     borderRadius: 14,
-    padding: 14,
-    alignItems: 'center',
-    gap: 6,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  statEmoji: {
-    fontSize: 24,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  statLabel: {
-    fontSize: 10,
-    color: '#6b7280',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  menuCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
+    marginHorizontal: 16,
+    marginBottom: 24,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
@@ -372,57 +341,69 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 6,
       },
-      android: {
-        elevation: 2,
-      },
+      android: { elevation: 2 },
     }),
   },
-  menuItem: {
+
+  // Row
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  menuLeft: {
+  rowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
   },
-  menuIcon: {
-    width: 34,
-    height: 34,
+  rowIconWrap: {
+    width: 36,
+    height: 36,
     borderRadius: 10,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
-  menuText: {
+  rowContent: {
+    flex: 1,
+    gap: 1,
+  },
+  rowLabel: {
     fontSize: 15,
-    fontWeight: '500',
-    color: '#111827',
+    fontWeight: '600',
+    color: '#3744C8',
   },
-  menuDivider: {
+  rowValue: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  rowDivider: {
     height: 1,
-    backgroundColor: '#f3f4f6',
-    marginLeft: 62,
+    backgroundColor: '#F3F4F6',
+    marginLeft: 64,
   },
-  signOutButton: {
+
+  // Logout
+  logoutSection: {
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#fef2f2',
+    backgroundColor: '#fff',
     borderRadius: 14,
     paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: '#fecaca',
   },
-  signOutButtonDisabled: {
-    opacity: 0.6,
-  },
-  signOutText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#ef4444',
+  logoutText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#EF4444',
   },
 });

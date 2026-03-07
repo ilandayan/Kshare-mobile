@@ -12,11 +12,10 @@ import { StatusBar } from 'expo-status-bar';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
-import { BasketCard } from '@/components/BasketCard';
+import { CommerceCard } from '@/components/CommerceCard';
 import type { Basket } from '@/lib/types';
 
 async function fetchFavoriteBaskets(userId: string): Promise<Basket[]> {
-  // First, get favorite basket IDs
   const { data: favs, error: favsError } = await supabase
     .from('favorites')
     .select('basket_id')
@@ -25,20 +24,18 @@ async function fetchFavoriteBaskets(userId: string): Promise<Basket[]> {
   if (favsError) throw favsError;
   if (!favs || favs.length === 0) return [];
 
-  const basketIds = favs.map((f: { basket_id: string }) => f.basket_id);
+  const ids = favs.map((f: { basket_id: string }) => f.basket_id);
 
   const { data, error } = await supabase
     .from('baskets')
     .select(
-      `
-      id, type, day, description,
-      original_price, sold_price,
-      quantity_total, quantity_reserved, quantity_sold,
-      status, is_donation, pickup_start, pickup_end, created_at, commerce_id,
-      commerces (id, name, address, city, postal_code, logo_url, hashgakha, latitude, longitude)
-    `,
+      `id, type, day, description,
+       original_price, sold_price,
+       quantity_total, quantity_reserved, quantity_sold,
+       status, is_donation, pickup_start, pickup_end, created_at, commerce_id,
+       commerces (id, name, address, city, postal_code, logo_url, hashgakha, commerce_type, latitude, longitude)`,
     )
-    .in('id', basketIds)
+    .in('id', ids)
     .eq('status', 'published');
 
   if (error) throw error;
@@ -55,11 +52,12 @@ export default function FavorisPage() {
     refetch,
   } = useQuery({
     queryKey: ['favorites', user?.id],
-    queryFn: () => (user?.id ? fetchFavoriteBaskets(user.id) : Promise.resolve([])),
+    queryFn: () =>
+      user?.id ? fetchFavoriteBaskets(user.id) : Promise.resolve([]),
     enabled: !!user?.id,
   });
 
-  // Sync favorites from DB into store on mount
+  // Sync favorites from DB
   useEffect(() => {
     if (user?.id) {
       supabase
@@ -67,9 +65,7 @@ export default function FavorisPage() {
         .select('basket_id')
         .eq('user_id', user.id)
         .then(({ data }) => {
-          if (data) {
-            setFavorites(data.map((f: { basket_id: string }) => f.basket_id));
-          }
+          if (data) setFavorites(data.map((f: { basket_id: string }) => f.basket_id));
         });
     }
   }, [user?.id, setFavorites]);
@@ -84,41 +80,36 @@ export default function FavorisPage() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="dark" />
 
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Favoris</Text>
-        {favorites.length > 0 && (
-          <Text style={styles.subtitle}>
-            {favorites.length} panier{favorites.length > 1 ? 's' : ''} sauvegardé{favorites.length > 1 ? 's' : ''}
-          </Text>
-        )}
+        <Text style={styles.title}>Mes Favoris</Text>
+        <Text style={styles.subtitle}>
+          {favorites.length} favori{favorites.length !== 1 ? 's' : ''} enregistré{favorites.length !== 1 ? 's' : ''}
+        </Text>
       </View>
 
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
+        <View style={styles.loader}>
+          <ActivityIndicator size="large" color="#3744C8" />
         </View>
       ) : (
         <FlatList
           data={favoriteBaskets}
           keyExtractor={(item) => item.id}
-          numColumns={2}
-          columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#3b82f6"
+              tintColor="#3744C8"
             />
           }
           renderItem={({ item }) => (
-            <View style={styles.cardWrapper}>
-              <BasketCard basket={item} />
-            </View>
+            <CommerceCard basket={item} distanceKm={0.8} rating={4.8} />
           )}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
+            <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>❤️</Text>
               <Text style={styles.emptyTitle}>Pas encore de favoris</Text>
               <Text style={styles.emptySubtitle}>
@@ -135,43 +126,36 @@ export default function FavorisPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#F8F9FC',
   },
   header: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: '#F3F4F6',
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '800',
     color: '#111827',
   },
   subtitle: {
-    fontSize: 13,
-    color: '#6b7280',
-    marginTop: 2,
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 3,
   },
-  loadingContainer: {
+  loader: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   listContent: {
-    padding: 16,
-    paddingBottom: 24,
+    padding: 20,
+    paddingBottom: 30,
   },
-  columnWrapper: {
-    gap: 12,
-    marginBottom: 12,
-  },
-  cardWrapper: {
-    flex: 1,
-  },
-  emptyContainer: {
+  empty: {
     paddingTop: 80,
     paddingHorizontal: 40,
     alignItems: 'center',
@@ -188,7 +172,7 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 15,
-    color: '#6b7280',
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 22,
   },

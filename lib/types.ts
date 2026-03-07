@@ -7,10 +7,10 @@ export const BASKET_TYPE_LABELS: Record<
   { emoji: string; label: string; color: string; bgColor: string }
 > = {
   bassari: { emoji: '🥩', label: 'Bassari', color: '#ef4444', bgColor: '#fef2f2' },
-  halavi: { emoji: '🧀', label: 'Halavi', color: '#f59e0b', bgColor: '#fffbeb' },
-  parve: { emoji: '🌿', label: 'Parvé', color: '#22c55e', bgColor: '#f0fdf4' },
-  shabbat: { emoji: '🍷', label: 'Shabbat', color: '#8b5cf6', bgColor: '#f5f3ff' },
-  mix: { emoji: '➕', label: 'Mix', color: '#3b82f6', bgColor: '#eff6ff' },
+  halavi:  { emoji: '🧀', label: 'Halavi',  color: '#3b82f6', bgColor: '#eff6ff' },
+  parve:   { emoji: '🌿', label: 'Parvé',   color: '#10b981', bgColor: '#f0fdf4' },
+  shabbat: { emoji: '🍷', label: 'Shabbat', color: '#f59e0b', bgColor: '#fffbeb' },
+  mix:     { emoji: '➕', label: 'Mix',     color: '#8b5cf6', bgColor: '#f5f3ff' },
 };
 
 export interface Commerce {
@@ -21,6 +21,7 @@ export interface Commerce {
   postal_code: string | null;
   logo_url: string | null;
   hashgakha: string;
+  commerce_type: string | null;
   latitude: number | null;
   longitude: number | null;
 }
@@ -50,19 +51,28 @@ export interface Order {
   user_id: string;
   amount_paid: number;
   status: 'pending' | 'confirmed' | 'picked_up' | 'cancelled' | 'refunded';
+  is_donation: boolean;
   qr_code_token: string | null;
   created_at: string;
   baskets: {
     type: BasketType;
     pickup_start: string;
     pickup_end: string;
+    original_price: number;
+    sold_price: number;
     description: string | null;
+    is_donation: boolean;
     commerces: {
       name: string;
       address: string;
       city: string;
       postal_code: string | null;
+      logo_url: string | null;
+      commerce_type: string | null;
     } | null;
+  } | null;
+  associations: {
+    name: string;
   } | null;
 }
 
@@ -71,6 +81,7 @@ export interface UserProfile {
   email: string;
   first_name: string | null;
   last_name: string | null;
+  phone: string | null;
   role: UserRole;
   avatar_url: string | null;
   created_at: string;

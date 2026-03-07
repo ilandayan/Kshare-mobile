@@ -19,22 +19,22 @@ const tabs: TabConfig[] = [
     activeIcon: 'home',
   },
   {
-    name: 'rechercher',
-    title: 'Rechercher',
-    icon: 'search-outline',
-    activeIcon: 'search',
-  },
-  {
-    name: 'paniers',
-    title: 'Mes paniers',
-    icon: 'bag-outline',
-    activeIcon: 'bag',
+    name: 'carte',
+    title: 'Carte',
+    icon: 'map-outline',
+    activeIcon: 'map',
   },
   {
     name: 'favoris',
     title: 'Favoris',
     icon: 'heart-outline',
     activeIcon: 'heart',
+  },
+  {
+    name: 'paniers',
+    title: 'Paniers',
+    icon: 'bag-outline',
+    activeIcon: 'bag',
   },
   {
     name: 'profil',
@@ -49,11 +49,11 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#3b82f6',
-        tabBarInactiveTintColor: '#6b7280',
+        tabBarActiveTintColor: '#3744C8',
+        tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: {
           backgroundColor: '#ffffff',
-          borderTopColor: '#f3f4f6',
+          borderTopColor: '#F3F4F6',
           borderTopWidth: 1,
           height: Platform.OS === 'ios' ? 84 : 64,
           paddingBottom: Platform.OS === 'ios' ? 24 : 8,
@@ -83,6 +83,8 @@ export default function TabLayout() {
           }}
         />
       ))}
+      {/* Hide rechercher from tab bar */}
+      <Tabs.Screen name="rechercher" options={{ href: null }} />
     </Tabs>
   );
 }

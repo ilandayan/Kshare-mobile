@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Image,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,27 +17,66 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
-import { BASKET_TYPE_LABELS, type Order } from '@/lib/types';
+import { BASKET_TYPE_LABELS, type Order, type BasketType } from '@/lib/types';
 
-const STATUS_LABELS: Record<Order['status'], { label: string; color: string; bg: string }> = {
-  pending: { label: 'En attente', color: '#f59e0b', bg: '#fffbeb' },
-  confirmed: { label: 'Confirmé', color: '#3b82f6', bg: '#eff6ff' },
-  picked_up: { label: 'Récupéré', color: '#22c55e', bg: '#f0fdf4' },
-  cancelled: { label: 'Annulé', color: '#ef4444', bg: '#fef2f2' },
-  refunded: { label: 'Remboursé', color: '#6b7280', bg: '#f3f4f6' },
+// ── Badge configs ─────────────────────────────────────────────────────────────
+const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
+  pending:   { label: 'En cours',  bg: '#DCFCE7', color: '#16A34A' },
+  confirmed: { label: 'En cours',  bg: '#DCFCE7', color: '#16A34A' },
+  picked_up: { label: 'Terminée',  bg: '#F3F4F6', color: '#6B7280' },
+  cancelled: { label: 'Annulée',   bg: '#FEE2E2', color: '#EF4444' },
+  refunded:  { label: 'Remboursée',bg: '#F3F4F6', color: '#6B7280' },
 };
 
+const BASKET_BADGE: Record<string, { bg: string; text: string }> = {
+  bassari: { bg: '#FEF2F2', text: '#EF4444' },
+  halavi:  { bg: '#EFF6FF', text: '#3B82F6' },
+  parve:   { bg: '#F0FDF4', text: '#10B981' },
+  shabbat: { bg: '#FFFBEB', text: '#F59E0B' },
+  mix:     { bg: '#F5F3FF', text: '#8B5CF6' },
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function getOrderNumber(id: string): string {
+  const hex = id.replace(/-/g, '').slice(-6);
+  const num = parseInt(hex, 16) % 1000000;
+  return `KS-${String(num).padStart(6, '0')}`;
+}
+
+function formatOrderDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function formatPickupDisplay(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+  const time = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  if (isToday)     return `Aujourd'hui ${time}`;
+  if (isYesterday) return `Hier ${time}`;
+  const dayMon = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  return `${dayMon} ${time}`;
+}
+
+// ── Fetch orders ──────────────────────────────────────────────────────────────
 async function fetchOrders(userId: string): Promise<Order[]> {
   const { data, error } = await supabase
     .from('orders')
     .select(
-      `
-      id, basket_id, user_id, amount_paid, status, qr_code_token, created_at,
-      baskets (
-        type, pickup_start, pickup_end, description,
-        commerces (name, address, city, postal_code)
-      )
-    `,
+      `id, basket_id, user_id, amount_paid, status, is_donation, qr_code_token, created_at,
+       baskets (
+         type, pickup_start, pickup_end, original_price, sold_price,
+         description, is_donation,
+         commerces (name, address, city, postal_code, logo_url, commerce_type)
+       ),
+       associations (name)`,
     )
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
@@ -45,84 +85,129 @@ async function fetchOrders(userId: string): Promise<Order[]> {
   return (data ?? []) as unknown as Order[];
 }
 
-function OrderItem({ order }: { order: Order }) {
-  const typeInfo = order.baskets?.type
-    ? BASKET_TYPE_LABELS[order.baskets.type]
-    : null;
-  const statusInfo = STATUS_LABELS[order.status];
-
-  const pickupDate = order.baskets?.pickup_start
-    ? new Date(order.baskets.pickup_start).toLocaleDateString('fr-FR', {
-        day: 'numeric',
-        month: 'short',
-      })
-    : null;
-
-  const pickupTime = order.baskets?.pickup_start
-    ? `${new Date(order.baskets.pickup_start).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} – ${new Date(order.baskets.pickup_end ?? order.baskets.pickup_start).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-    : null;
+// ── Order card ────────────────────────────────────────────────────────────────
+function OrderCard({ order, tab }: { order: Order; tab: 'en_cours' | 'passees' | 'dons' }) {
+  const basket = order.baskets;
+  const commerce = basket?.commerces;
+  const typeKey = basket?.type ?? 'mix';
+  const typeInfo = BASKET_TYPE_LABELS[typeKey as BasketType];
+  const basketBadge = BASKET_BADGE[typeKey] ?? BASKET_BADGE.mix;
+  const statusInfo = STATUS_CONFIG[order.status] ?? { label: order.status, bg: '#F3F4F6', color: '#6B7280' };
+  const isEnCours = tab === 'en_cours';
+  const isDon = tab === 'dons';
 
   return (
     <TouchableOpacity
       style={styles.orderCard}
       onPress={() => router.push(`/commande/${order.id}`)}
-      activeOpacity={0.8}
+      activeOpacity={0.9}
     >
-      <View
-        style={[
-          styles.orderEmoji,
-          { backgroundColor: typeInfo?.bgColor ?? '#f3f4f6' },
-        ]}
-      >
-        <Text style={styles.orderEmojiText}>{typeInfo?.emoji ?? '🛍️'}</Text>
+      {/* ── Card header ── */}
+      <View style={styles.cardHeader}>
+        <View>
+          <Text style={styles.orderNumber}>{getOrderNumber(order.id)}</Text>
+          <Text style={styles.orderDate}>{formatOrderDate(order.created_at)}</Text>
+        </View>
+        {isDon ? (
+          <View style={[styles.statusBadge, { backgroundColor: '#F3E8FF' }]}>
+            <Text style={{ fontSize: 11, marginRight: 3 }}>🎁</Text>
+            <Text style={[styles.statusText, { color: '#9333EA' }]}>Don</Text>
+          </View>
+        ) : (
+          <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
+            <Text style={[styles.statusText, { color: statusInfo.color }]}>
+              {statusInfo.label}
+            </Text>
+          </View>
+        )}
       </View>
 
-      <View style={styles.orderContent}>
-        <Text style={styles.orderCommerce} numberOfLines={1}>
-          {order.baskets?.commerces?.name ?? 'Commerce'}
-        </Text>
-        <Text style={styles.orderType} numberOfLines={1}>
-          Panier {typeInfo?.label ?? ''} • {order.baskets?.commerces?.city ?? ''}
-        </Text>
-        <View style={styles.orderMeta}>
-          {pickupDate && (
-            <View style={styles.metaItem}>
-              <Ionicons name="calendar-outline" size={12} color="#6b7280" />
-              <Text style={styles.metaText}>{pickupDate}</Text>
-            </View>
-          )}
-          {pickupTime && (
-            <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={12} color="#6b7280" />
-              <Text style={styles.metaText}>{pickupTime}</Text>
+      {/* ── Divider ── */}
+      <View style={styles.cardDivider} />
+
+      {/* ── Card body ── */}
+      <View style={styles.cardBody}>
+        {/* Thumbnail */}
+        <View style={styles.thumb}>
+          {commerce?.logo_url ? (
+            <Image source={{ uri: commerce.logo_url }} style={styles.thumbImg} resizeMode="cover" />
+          ) : (
+            <View style={[styles.thumbPlaceholder, { backgroundColor: typeInfo.bgColor }]}>
+              <Text style={styles.thumbEmoji}>{typeInfo.emoji}</Text>
             </View>
           )}
         </View>
-      </View>
 
-      <View style={styles.orderRight}>
-        <Text style={styles.orderAmount}>{order.amount_paid.toFixed(2)} €</Text>
-        <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
-          <Text style={[styles.statusText, { color: statusInfo.color }]}>
-            {statusInfo.label}
+        {/* Info */}
+        <View style={styles.cardInfo}>
+          <View style={styles.cardInfoRow}>
+            <Text style={styles.commerceName} numberOfLines={1}>
+              {commerce?.name ?? 'Commerce'}
+            </Text>
+            {/* Category badge (top-right) */}
+            <View style={[styles.catBadge, { backgroundColor: basketBadge.bg }]}>
+              <Text style={[styles.catBadgeText, { color: basketBadge.text }]}>
+                {typeInfo.label}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.commerceType}>
+            {commerce?.commerce_type ?? ''}
           </Text>
+
+          {basket?.pickup_start && (
+            <View style={styles.timeRow}>
+              <Ionicons name="time-outline" size={12} color="#6B7280" />
+              <Text style={styles.timeText}>
+                {formatPickupDisplay(basket.pickup_start)}
+              </Text>
+            </View>
+          )}
+
+          {/* Donation text */}
+          {isDon && order.associations?.name && (
+            <View style={styles.donRow}>
+              <Text style={styles.donEmoji}>🎁</Text>
+              <Text style={styles.donText}>Don à {order.associations.name}</Text>
+            </View>
+          )}
+
+          {/* Prices */}
+          <View style={styles.priceRow}>
+            {basket?.original_price !== undefined && (
+              <Text style={styles.origPrice}>{basket.original_price.toFixed(2)}€</Text>
+            )}
+            <Text style={styles.soldPrice}>
+              {(basket?.sold_price ?? order.amount_paid).toFixed(2)}€
+            </Text>
+
+            {/* Détails button — En cours only */}
+            {isEnCours && (
+              <TouchableOpacity
+                style={styles.detailsBtn}
+                onPress={() => router.push(`/commande/${order.id}`)}
+              >
+                <Text style={styles.detailsBtnText}>Détails</Text>
+                <Ionicons name="chevron-forward" size={13} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-        <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
       </View>
     </TouchableOpacity>
   );
 }
 
+// ── Main screen ───────────────────────────────────────────────────────────────
+type TabKey = 'en_cours' | 'passees' | 'dons';
+
 export default function PaniersPage() {
   const { user } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'en_cours' | 'historique'>('en_cours');
+  const [activeTab, setActiveTab] = useState<TabKey>('en_cours');
   const [refreshing, setRefreshing] = useState(false);
 
-  const {
-    data: orders = [],
-    isLoading,
-    refetch,
-  } = useQuery({
+  const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ['orders', user?.id],
     queryFn: () => (user?.id ? fetchOrders(user.id) : Promise.resolve([])),
     enabled: !!user?.id,
@@ -134,89 +219,88 @@ export default function PaniersPage() {
     setRefreshing(false);
   }, [refetch]);
 
-  const enCours = orders.filter((o) =>
-    ['pending', 'confirmed'].includes(o.status),
-  );
-  const historique = orders.filter((o) =>
-    ['picked_up', 'cancelled', 'refunded'].includes(o.status),
-  );
+  const enCours  = orders.filter((o) => ['pending', 'confirmed'].includes(o.status) && !o.is_donation);
+  const passees  = orders.filter((o) => ['picked_up', 'cancelled', 'refunded'].includes(o.status));
+  const dons     = orders.filter((o) => o.is_donation);
 
-  const displayedOrders = activeTab === 'en_cours' ? enCours : historique;
+  const tabOrders: Record<TabKey, Order[]> = { en_cours: enCours, passees, dons };
+  const displayed = tabOrders[activeTab];
+
+  const TABS: { key: TabKey; label: string }[] = [
+    { key: 'en_cours', label: 'En cours' },
+    { key: 'passees',  label: 'Passées'  },
+    { key: 'dons',     label: 'Dons'     },
+  ];
+
+  const totalCount = displayed.length;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="dark" />
 
+      {/* ── Header ── */}
       <View style={styles.header}>
-        <Text style={styles.title}>Mes paniers</Text>
+        <Text style={styles.title}>Mes Paniers</Text>
+        <Text style={styles.subtitle}>
+          {totalCount} panier{totalCount !== 1 ? 's' : ''}
+        </Text>
 
-        {/* Tabs */}
+        {/* Tab pills */}
         <View style={styles.tabs}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'en_cours' && styles.tabActive]}
-            onPress={() => setActiveTab('en_cours')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'en_cours' && styles.tabTextActive,
-              ]}
+          {TABS.map((t) => (
+            <TouchableOpacity
+              key={t.key}
+              style={[styles.tabPill, activeTab === t.key && styles.tabPillActive]}
+              onPress={() => setActiveTab(t.key)}
+              activeOpacity={0.8}
             >
-              En cours
-              {enCours.length > 0 && (
-                <Text style={styles.tabBadge}> {enCours.length}</Text>
-              )}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'historique' && styles.tabActive]}
-            onPress={() => setActiveTab('historique')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'historique' && styles.tabTextActive,
-              ]}
-            >
-              Historique
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.tabPillText,
+                  activeTab === t.key && styles.tabPillTextActive,
+                ]}
+              >
+                {t.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
+      {/* ── List ── */}
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
+        <View style={styles.loader}>
+          <ActivityIndicator size="large" color="#3744C8" />
         </View>
       ) : (
         <FlatList
-          data={displayedOrders}
+          data={displayed}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#3b82f6"
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3744C8" />
           }
-          renderItem={({ item }) => <OrderItem order={item} />}
-          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          renderItem={({ item }) => <OrderCard order={item} tab={activeTab} />}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
+            <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>
-                {activeTab === 'en_cours' ? '🛍️' : '📋'}
+                {activeTab === 'en_cours' ? '🛍️' : activeTab === 'dons' ? '🎁' : '📋'}
               </Text>
               <Text style={styles.emptyTitle}>
                 {activeTab === 'en_cours'
                   ? 'Aucune commande en cours'
-                  : 'Aucun historique'}
+                  : activeTab === 'dons'
+                    ? 'Aucun don effectué'
+                    : 'Aucune commande passée'}
               </Text>
               <Text style={styles.emptySubtitle}>
                 {activeTab === 'en_cours'
                   ? 'Commandez votre premier panier casher !'
-                  : 'Vos commandes passées apparaîtront ici.'}
+                  : activeTab === 'dons'
+                    ? 'Faites un don (Mitzvah) depuis la page d\'un panier.'
+                    : 'Votre historique apparaîtra ici.'}
               </Text>
             </View>
           }
@@ -229,141 +313,233 @@ export default function PaniersPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#F8F9FC',
   },
+
+  // Header
   header: {
-    backgroundColor: '#ffffff',
-    paddingTop: 8,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: '#F3F4F6',
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '800',
     color: '#111827',
-    paddingHorizontal: 20,
-    marginBottom: 12,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 3,
+    marginBottom: 16,
   },
   tabs: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 4,
+    gap: 8,
   },
-  tab: {
-    paddingHorizontal: 16,
+  tabPill: {
+    flex: 1,
+    alignItems: 'center',
     paddingVertical: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-    marginBottom: -1,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  tabActive: {
-    borderBottomColor: '#3b82f6',
+  tabPillActive: {
+    backgroundColor: '#3744C8',
+    borderColor: '#3744C8',
   },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  tabTextActive: {
-    color: '#3b82f6',
-  },
-  tabBadge: {
+  tabPillText: {
     fontSize: 13,
-    color: '#3b82f6',
+    fontWeight: '600',
+    color: '#6B7280',
   },
-  loadingContainer: {
+  tabPillTextActive: {
+    color: '#fff',
+  },
+
+  loader: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   listContent: {
     padding: 16,
-    paddingBottom: 24,
+    paddingBottom: 30,
   },
+
+  // Order card
   orderCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
     borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    gap: 12,
+    borderWidth: 1,
+    borderColor: '#F0F1F5',
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
+        shadowOpacity: 0.05,
         shadowRadius: 6,
       },
-      android: {
-        elevation: 2,
-      },
+      android: { elevation: 2 },
     }),
   },
-  orderEmoji: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
+  cardHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  orderNumber: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '600',
+  },
+  orderDate: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 1,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+  },
+  cardBody: {
+    flexDirection: 'row',
+    padding: 14,
+    gap: 12,
+  },
+  thumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    overflow: 'hidden',
     flexShrink: 0,
   },
-  orderEmojiText: {
-    fontSize: 26,
+  thumbImg: {
+    width: '100%',
+    height: '100%',
   },
-  orderContent: {
+  thumbPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbEmoji: {
+    fontSize: 30,
+  },
+  cardInfo: {
     flex: 1,
     gap: 3,
   },
-  orderCommerce: {
+  cardInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  commerceName: {
+    flex: 1,
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: '#3744C8',
   },
-  orderType: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  orderMeta: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 2,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  metaText: {
-    fontSize: 11,
-    color: '#6b7280',
-  },
-  orderRight: {
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  orderAmount: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  statusBadge: {
+  catBadge: {
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
+    flexShrink: 0,
   },
-  statusText: {
+  catBadgeText: {
     fontSize: 11,
+    fontWeight: '700',
+  },
+  commerceType: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  timeText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  donRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  donEmoji: {
+    fontSize: 12,
+  },
+  donText: {
+    fontSize: 12,
+    color: '#9333EA',
+    fontWeight: '500',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  origPrice: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
+  },
+  soldPrice: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#3B82F6',
+  },
+  detailsBtn: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3744C8',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 2,
+  },
+  detailsBtnText: {
+    color: '#fff',
+    fontSize: 12,
     fontWeight: '600',
   },
-  emptyContainer: {
+
+  // Empty
+  empty: {
     paddingTop: 60,
+    paddingHorizontal: 40,
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 40,
   },
-  emptyEmoji: {
-    fontSize: 52,
-  },
+  emptyEmoji: { fontSize: 52 },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -372,7 +548,7 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 20,
   },
