@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,24 +11,32 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
+import { SwipeConfirmButton } from '@/components/SwipeConfirmButton';
 import { BasketTypeBadge } from '@/components/BasketTypeBadge';
 import { BASKET_TYPE_LABELS, type Order } from '@/lib/types';
+import { isMockOrderId, getMockOrderById } from '@/lib/mockOrders';
 
 async function fetchOrder(id: string): Promise<Order | null> {
+  // Mock orders: return local data without hitting Supabase
+  if (isMockOrderId(id)) {
+    return getMockOrderById(id) ?? null;
+  }
+
   const { data, error } = await supabase
     .from('orders')
     .select(
       `
-      id, basket_id, user_id, amount_paid, status, qr_code_token, created_at,
+      id, basket_id, user_id, amount_paid, status, is_donation, qr_code_token, created_at,
       baskets (
         type, pickup_start, pickup_end, description,
         commerces (name, address, city, postal_code)
-      )
+      ),
+      associations (name)
     `,
     )
     .eq('id', id)
@@ -38,12 +46,14 @@ async function fetchOrder(id: string): Promise<Order | null> {
   return data as unknown as Order;
 }
 
-const STATUS_INFO = {
-  pending: { label: 'En attente de confirmation', color: '#f59e0b', icon: 'time-outline' as const },
-  confirmed: { label: 'Commande confirmée', color: '#3b82f6', icon: 'checkmark-circle-outline' as const },
-  picked_up: { label: 'Panier récupéré', color: '#22c55e', icon: 'checkmark-done-circle-outline' as const },
-  cancelled: { label: 'Commande annulée', color: '#ef4444', icon: 'close-circle-outline' as const },
-  refunded: { label: 'Remboursée', color: '#6b7280', icon: 'refresh-circle-outline' as const },
+const STATUS_INFO: Record<string, { label: string; color: string; icon: React.ComponentProps<typeof Ionicons>['name'] }> = {
+  created: { label: 'En attente de paiement', color: '#f59e0b', icon: 'time-outline' },
+  paid: { label: 'Commande confirmée', color: '#3744C8', icon: 'checkmark-circle-outline' },
+  ready_for_pickup: { label: 'Prêt à retirer', color: '#2563eb', icon: 'bag-check-outline' },
+  picked_up: { label: 'Panier récupéré', color: '#22c55e', icon: 'checkmark-done-circle-outline' },
+  no_show: { label: 'Non récupéré', color: '#ef4444', icon: 'alert-circle-outline' },
+  refunded: { label: 'Remboursée', color: '#6b7280', icon: 'refresh-circle-outline' },
+  cancelled_admin: { label: 'Commande annulée', color: '#ef4444', icon: 'close-circle-outline' },
 };
 
 function formatDateTime(isoString: string) {
@@ -76,13 +86,35 @@ function formatDateTime(isoString: string) {
 
 export default function CommandePage() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const queryClient = useQueryClient();
+  const [pickupConfirmed, setPickupConfirmed] = useState(false);
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', id],
     queryFn: () => fetchOrder(id),
     enabled: !!id,
-    refetchInterval: 10000, // Rafraichir toutes les 10s
+    refetchInterval: pickupConfirmed ? false : 10000,
   });
+
+  const handleConfirmPickup = async () => {
+    if (!order) return;
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: 'picked_up',
+        picked_up_at: new Date().toISOString(),
+      })
+      .eq('id', order.id);
+
+    if (error) {
+      Alert.alert('Erreur', 'Impossible de confirmer le retrait.');
+      throw error;
+    }
+
+    setPickupConfirmed(true);
+    queryClient.invalidateQueries({ queryKey: ['order', id] });
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
+  };
 
   const handleOpenMaps = () => {
     if (!order?.baskets?.commerces) return;
@@ -108,7 +140,7 @@ export default function CommandePage() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color="#3744C8" />
       </View>
     );
   }
@@ -121,6 +153,7 @@ export default function CommandePage() {
     );
   }
 
+  const isMock = isMockOrderId(id);
   const typeInfo = order.baskets?.type ? BASKET_TYPE_LABELS[order.baskets.type] : null;
   const statusInfo = STATUS_INFO[order.status];
   const { dayLabel, timeStart } = order.baskets?.pickup_start
@@ -142,6 +175,13 @@ export default function CommandePage() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Demo banner */}
+        {isMock && (
+          <View style={styles.demoBanner}>
+            <Text style={styles.demoBannerText}>Données de démonstration</Text>
+          </View>
+        )}
+
         {/* Status banner */}
         <View
           style={[
@@ -155,18 +195,55 @@ export default function CommandePage() {
           </Text>
         </View>
 
-        {/* QR Code section */}
-        {order.status !== 'cancelled' && order.status !== 'refunded' && (
+        {/* QR Code section + swipe confirm */}
+        {order.status !== 'cancelled_admin' && order.status !== 'refunded' && order.status !== 'no_show' && !pickupConfirmed && order.status !== 'picked_up' && (
           <View style={styles.qrSection}>
             <Text style={styles.qrTitle}>QR Code de retrait</Text>
             <Text style={styles.qrSubtitle}>
-              Présentez ce QR code au commerçant lors du retrait
+              {isMock
+                ? 'Aperçu démo — le QR code sera fonctionnel avec une vraie commande'
+                : 'Présentez ce QR code au commerçant puis glissez pour confirmer'}
             </Text>
             <QRCodeDisplay
               value={qrValue}
               size={200}
               label={order.qr_code_token ?? undefined}
             />
+            {!isMock && (order.status === 'paid' || order.status === 'ready_for_pickup') && (
+              <>
+                <View style={styles.swipeContainer}>
+                  <SwipeConfirmButton onConfirm={handleConfirmPickup} />
+                </View>
+                <TouchableOpacity
+                  style={styles.helpBtn}
+                  onPress={() => router.push(`/commande/signaler?orderId=${order.id}`)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="help-circle-outline" size={18} color="#EF4444" />
+                  <Text style={styles.helpBtnText}>Un problème ? Signaler</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
+
+        {/* Confirmation retrait */}
+        {(pickupConfirmed || order.status === 'picked_up') && (
+          <View style={styles.confirmedSection}>
+            <View style={styles.confirmedCircle}>
+              <Ionicons name="checkmark" size={48} color="#fff" />
+            </View>
+            <Text style={styles.confirmedTitle}>Retrait confirmé !</Text>
+            <Text style={styles.confirmedSubtitle}>
+              {order.is_donation ? 'Merci pour votre don' : 'Merci pour votre achat anti-gaspi'}
+            </Text>
+            <TouchableOpacity
+              style={styles.backToPaniersBtn}
+              onPress={() => router.push('/(tabs)/paniers')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.backToPaniersText}>Retour à mes paniers</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -205,7 +282,7 @@ export default function CommandePage() {
           <View style={styles.detailCard}>
             <View style={styles.infoRow}>
               <View style={[styles.infoIcon, { backgroundColor: '#eff6ff' }]}>
-                <Ionicons name="business-outline" size={18} color="#3b82f6" />
+                <Ionicons name="business-outline" size={18} color="#3744C8" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.detailLabel}>Commerce</Text>
@@ -219,7 +296,7 @@ export default function CommandePage() {
 
             <View style={styles.infoRow}>
               <View style={[styles.infoIcon, { backgroundColor: '#eff6ff' }]}>
-                <Ionicons name="calendar-outline" size={18} color="#3b82f6" />
+                <Ionicons name="calendar-outline" size={18} color="#3744C8" />
               </View>
               <View>
                 <Text style={styles.detailLabel}>Date</Text>
@@ -231,7 +308,7 @@ export default function CommandePage() {
 
             <View style={styles.infoRow}>
               <View style={[styles.infoIcon, { backgroundColor: '#eff6ff' }]}>
-                <Ionicons name="time-outline" size={18} color="#3b82f6" />
+                <Ionicons name="time-outline" size={18} color="#3744C8" />
               </View>
               <View>
                 <Text style={styles.detailLabel}>Créneau</Text>
@@ -261,6 +338,26 @@ export default function CommandePage() {
           </View>
         </View>
 
+        {/* Association bénéficiaire (dons) */}
+        {order.is_donation && order.associations?.name && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Don</Text>
+            <View style={styles.detailCard}>
+              <View style={styles.infoRow}>
+                <View style={[styles.infoIcon, { backgroundColor: '#faf5ff' }]}>
+                  <Ionicons name="heart-outline" size={18} color="#9333EA" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.detailLabel}>Association bénéficiaire</Text>
+                  <Text style={[styles.detailValue, { color: '#9333EA' }]}>
+                    {order.associations.name}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Bouton itinéraire */}
         {order.baskets?.commerces && (
           <TouchableOpacity
@@ -268,7 +365,7 @@ export default function CommandePage() {
             onPress={handleOpenMaps}
             activeOpacity={0.85}
           >
-            <Ionicons name="navigate-outline" size={20} color="#3b82f6" />
+            <Ionicons name="navigate-outline" size={20} color="#3744C8" />
             <Text style={styles.mapsButtonText}>Voir l'itinéraire</Text>
           </TouchableOpacity>
         )}
@@ -299,8 +396,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6b7280',
   },
+  demoBanner: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  demoBannerText: {
+    fontSize: 12,
+    color: '#92400E',
+    fontWeight: '600',
+  },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 0,
     gap: 20,
   },
   statusBanner: {
@@ -415,6 +528,72 @@ const styles = StyleSheet.create({
   mapsButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#3b82f6',
+    color: '#3744C8',
+  },
+  swipeContainer: {
+    width: '100%',
+    marginTop: 8,
+  },
+  helpBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  helpBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#EF4444',
+  },
+  confirmedSection: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    gap: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  confirmedCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#22C55E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  confirmedTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  confirmedSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+  backToPaniersBtn: {
+    backgroundColor: '#3744C8',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    marginTop: 8,
+  },
+  backToPaniersText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
   },
 });
