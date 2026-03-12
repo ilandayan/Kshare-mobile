@@ -8,16 +8,33 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useStripe } from '@stripe/stripe-react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
+import { usePayment } from '@/lib/usePayment';
 import { BasketTypeBadge } from '@/components/BasketTypeBadge';
 import { BASKET_TYPE_LABELS, type Basket } from '@/lib/types';
+
+const COMMERCE_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  Boucherie:   'food-steak',
+  Boulangerie: 'bread-slice',
+  Supermarché: 'cart-outline',
+  Traiteur:    'food-variant',
+  Épicerie:    'storefront-outline',
+  Restaurant:  'silverware-fork-knife',
+  Fromagerie:  'cheese',
+  Pâtisserie:  'cupcake',
+};
+
+function getCommerceIcon(commerceType: string | null | undefined): keyof typeof MaterialCommunityIcons.glyphMap {
+  if (!commerceType) return 'storefront-outline';
+  return COMMERCE_TYPE_ICONS[commerceType] ?? 'storefront-outline';
+}
 
 async function fetchBasket(id: string): Promise<Basket | null> {
   const { data, error } = await supabase
@@ -28,7 +45,7 @@ async function fetchBasket(id: string): Promise<Basket | null> {
       original_price, sold_price,
       quantity_total, quantity_reserved, quantity_sold,
       status, is_donation, pickup_start, pickup_end, created_at, commerce_id,
-      commerces (id, name, address, city, postal_code, logo_url, hashgakha, latitude, longitude)
+      commerces (id, name, address, city, postal_code, logo_url, hashgakha, commerce_type, latitude, longitude)
     `,
     )
     .eq('id', id)
@@ -63,8 +80,9 @@ function getDiscount(original: number, sold: number) {
 export default function BasketDetailPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, toggleFavorite, isFavorite } = useAppStore();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { pay } = usePayment();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [quantity, setQuantity] = useState(1);
 
   const { data: basket, isLoading } = useQuery({
     queryKey: ['basket', id],
@@ -72,7 +90,8 @@ export default function BasketDetailPage() {
     enabled: !!id,
   });
 
-  const favorited = basket ? isFavorite(basket.id) : false;
+  const commerceId = basket?.commerces?.id ?? basket?.commerce_id ?? '';
+  const favorited = commerceId ? isFavorite(commerceId) : false;
 
   const handleReserve = async () => {
     if (!basket || !user) {
@@ -91,54 +110,20 @@ export default function BasketDetailPage() {
     setIsCheckingOut(true);
 
     try {
-      // Create payment intent via Supabase Edge Function or API
-      const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
-        'create-payment-intent',
-        {
-          body: {
-            basket_id: basket.id,
-            user_id: user.id,
-            amount: Math.round(basket.sold_price * 100), // centimes
-          },
-        },
-      );
-
-      if (paymentError || !paymentData?.clientSecret) {
-        throw new Error(paymentError?.message ?? 'Impossible de créer le paiement.');
-      }
-
-      const { error: initError } = await initPaymentSheet({
-        merchantDisplayName: 'Kshare',
-        paymentIntentClientSecret: paymentData.clientSecret,
-        defaultBillingDetails: {
-          email: user.email,
-        },
-        appearance: {
-          colors: {
-            primary: '#3b82f6',
-          },
-        },
+      const result = await pay({
+        basketId: basket.id,
+        userId: user.id,
+        userEmail: user.email ?? '',
+        amount: Math.round(basket.sold_price * quantity * 100), // centimes
+        quantity,
       });
 
-      if (initError) {
-        throw new Error(initError.message);
-      }
-
-      const { error: presentError } = await presentPaymentSheet();
-
-      if (presentError) {
-        if (presentError.code !== 'Canceled') {
-          Alert.alert('Paiement annulé', presentError.message);
+      if (result.success) {
+        if (result.orderId) {
+          router.replace(`/commande/${result.orderId}`);
+        } else {
+          router.replace('/(tabs)/paniers');
         }
-        return;
-      }
-
-      // Payment successful — navigate to order confirmation
-      const orderId = paymentData.order_id;
-      if (orderId) {
-        router.replace(`/commande/${orderId}`);
-      } else {
-        router.replace('/(tabs)/paniers');
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Une erreur est survenue.';
@@ -151,7 +136,7 @@ export default function BasketDetailPage() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color="#3744C8" />
       </View>
     );
   }
@@ -174,13 +159,12 @@ export default function BasketDetailPage() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Hero visuel */}
         <View style={[styles.hero, { backgroundColor: typeInfo.bgColor }]}>
-          <Text style={styles.heroEmoji}>{typeInfo.emoji}</Text>
           <View style={[styles.discountBadge, { backgroundColor: typeInfo.color }]}>
             <Text style={styles.discountText}>-{discount}%</Text>
           </View>
           <TouchableOpacity
             style={styles.favButton}
-            onPress={() => toggleFavorite(basket.id)}
+            onPress={() => toggleFavorite(commerceId)}
             hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
           >
             <Ionicons
@@ -189,6 +173,22 @@ export default function BasketDetailPage() {
               color={favorited ? '#ef4444' : '#6b7280'}
             />
           </TouchableOpacity>
+          {/* Commerce logo — bottom right */}
+          <View style={styles.commerceLogo}>
+            {basket.commerces?.logo_url ? (
+              <Image
+                source={{ uri: basket.commerces.logo_url }}
+                style={styles.commerceLogoImg}
+                resizeMode="cover"
+              />
+            ) : (
+              <MaterialCommunityIcons
+                name={getCommerceIcon(basket.commerces?.commerce_type)}
+                size={28}
+                color="#9CA3AF"
+              />
+            )}
+          </View>
         </View>
 
         <View style={styles.content}>
@@ -224,14 +224,14 @@ export default function BasketDetailPage() {
             <View style={styles.priceRow}>
               <Text style={styles.soldPrice}>{basket.sold_price.toFixed(2)} €</Text>
               <Text style={styles.originalPrice}>{basket.original_price.toFixed(2)} €</Text>
-              <View style={[styles.discountPill, { backgroundColor: typeInfo.color + '20' }]}>
-                <Text style={[styles.discountPillText, { color: typeInfo.color }]}>
+              <View style={[styles.discountPill, { backgroundColor: typeInfo.color }]}>
+                <Text style={styles.discountPillText}>
                   -{discount}% de réduction
                 </Text>
               </View>
             </View>
             <Text style={styles.saveText}>
-              Vous économisez {(basket.original_price - basket.sold_price).toFixed(2)} €
+              Vous économisez {((basket.original_price - basket.sold_price) * quantity).toFixed(2)} €
             </Text>
           </View>
 
@@ -239,7 +239,7 @@ export default function BasketDetailPage() {
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <View style={[styles.infoIcon, { backgroundColor: '#eff6ff' }]}>
-                <Ionicons name="calendar-outline" size={18} color="#3b82f6" />
+                <Ionicons name="calendar-outline" size={18} color="#3744C8" />
               </View>
               <View>
                 <Text style={styles.infoLabel}>Date de retrait</Text>
@@ -253,7 +253,7 @@ export default function BasketDetailPage() {
 
             <View style={styles.infoRow}>
               <View style={[styles.infoIcon, { backgroundColor: '#eff6ff' }]}>
-                <Ionicons name="time-outline" size={18} color="#3b82f6" />
+                <Ionicons name="time-outline" size={18} color="#3744C8" />
               </View>
               <View>
                 <Text style={styles.infoLabel}>Créneau de retrait</Text>
@@ -294,6 +294,49 @@ export default function BasketDetailPage() {
 
       {/* CTA fixe en bas */}
       <View style={styles.bottomCTA}>
+        {/* Sélecteur de quantité */}
+        {!isSoldOut && (
+          <View style={styles.quantityRow}>
+            <Text style={styles.quantityLabel}>Quantité</Text>
+            <View style={styles.quantityStepper}>
+              <TouchableOpacity
+                style={[
+                  styles.quantityButton,
+                  quantity <= 1 && styles.quantityButtonDisabled,
+                ]}
+                onPress={() => setQuantity((q) => Math.max(1, q - 1))}
+                disabled={quantity <= 1}
+                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+              >
+                <Ionicons
+                  name="remove"
+                  size={20}
+                  color={quantity <= 1 ? '#d1d5db' : '#111827'}
+                />
+              </TouchableOpacity>
+              <Text style={styles.quantityValue}>{quantity}</Text>
+              <TouchableOpacity
+                style={[
+                  styles.quantityButton,
+                  quantity >= remaining && styles.quantityButtonDisabled,
+                ]}
+                onPress={() => setQuantity((q) => Math.min(remaining, q + 1))}
+                disabled={quantity >= remaining}
+                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+              >
+                <Ionicons
+                  name="add"
+                  size={20}
+                  color={quantity >= remaining ? '#d1d5db' : '#111827'}
+                />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.quantityTotal}>
+              {(basket.sold_price * quantity).toFixed(2)} €
+            </Text>
+          </View>
+        )}
+
         <TouchableOpacity
           style={[
             styles.reserveButton,
@@ -312,7 +355,7 @@ export default function BasketDetailPage() {
               <Text style={styles.reserveButtonText}>
                 {isSoldOut
                   ? 'Rupture de stock'
-                  : `Réserver — ${basket.sold_price.toFixed(2)} €`}
+                  : `Réserver${quantity > 1 ? ` (×${quantity})` : ''} — ${(basket.sold_price * quantity).toFixed(2)} €`}
               </Text>
             </>
           )}
@@ -348,8 +391,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  heroEmoji: {
-    fontSize: 80,
+  commerceLogo: {
+    position: 'absolute',
+    bottom: 12,
+    right: 16,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+      android: { elevation: 4 },
+    }),
+  },
+  commerceLogoImg: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  commerceLogoInitial: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#3744C8',
   },
   discountBadge: {
     position: 'absolute',
@@ -452,6 +519,7 @@ const styles = StyleSheet.create({
   discountPillText: {
     fontSize: 13,
     fontWeight: '700',
+    color: '#ffffff',
   },
   saveText: {
     fontSize: 13,
@@ -532,5 +600,55 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 17,
     fontWeight: '800',
+  },
+  quantityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  quantityLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  quantityStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    padding: 4,
+  },
+  quantityButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  quantityButtonDisabled: {
+    backgroundColor: '#f9fafb',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  quantityValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    minWidth: 40,
+    textAlign: 'center',
+  },
+  quantityTotal: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111827',
   },
 });
