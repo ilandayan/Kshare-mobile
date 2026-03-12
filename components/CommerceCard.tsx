@@ -13,17 +13,22 @@ import { BASKET_TYPE_LABELS, type Basket } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 
 const BADGE_CONFIG: Record<string, { bg: string; text: string }> = {
-  bassari: { bg: '#EF4444', text: '#fff' },
-  halavi:  { bg: '#3B82F6', text: '#fff' },
-  parve:   { bg: '#10B981', text: '#fff' },
-  shabbat: { bg: '#F59E0B', text: '#fff' },
-  mix:     { bg: '#8B5CF6', text: '#fff' },
+  bassari: { bg: '#FF6B82', text: '#fff' },
+  halavi:  { bg: '#5BB8E8', text: '#fff' },
+  parve:   { bg: '#4BC8A0', text: '#fff' },
+  shabbat: { bg: '#FF9A3E', text: '#fff' },
+  mix:     { bg: '#9B7FE8', text: '#fff' },
 };
 
+function formatTime(value: string): string {
+  if (/^\d{2}:\d{2}/.test(value)) return value.slice(0, 5);
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '--:--';
+  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
 function formatPickupRange(start: string, end: string): string {
-  const s = new Date(start).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  const e = new Date(end).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  return `${s} - ${e}`;
+  return `${formatTime(start)} - ${formatTime(end)}`;
 }
 
 interface CommerceCardProps {
@@ -40,13 +45,19 @@ export function CommerceCard({
   showReserveButton = true,
 }: CommerceCardProps) {
   const { toggleFavorite, isFavorite } = useAppStore();
-  const favorited = isFavorite(basket.id);
   const typeInfo = BASKET_TYPE_LABELS[basket.type];
   const badge = BADGE_CONFIG[basket.type] ?? { bg: '#6B7280', text: '#fff' };
   const commerce = basket.commerces;
+  const commerceId = commerce?.id ?? basket.commerce_id;
+  const favorited = isFavorite(commerceId);
+
+  // Computed values
+  const remaining = basket.quantity_total - basket.quantity_reserved - basket.quantity_sold;
+  const savingsPct = Math.round((1 - basket.sold_price / basket.original_price) * 100);
+  const isLowStock = remaining > 0 && remaining <= 2;
 
   const handlePress = () => router.push(`/panier/${basket.id}`);
-  const handleFavorite = () => toggleFavorite(basket.id);
+  const handleFavorite = () => toggleFavorite(commerceId);
 
   return (
     <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.92}>
@@ -59,9 +70,7 @@ export function CommerceCard({
             resizeMode="cover"
           />
         ) : (
-          <View style={[styles.imagePlaceholder, { backgroundColor: typeInfo.bgColor }]}>
-            <Text style={styles.placeholderEmoji}>{typeInfo.emoji}</Text>
-          </View>
+          <View style={[styles.imagePlaceholder, { backgroundColor: typeInfo.bgColor }]} />
         )}
 
         {/* Category badge — top left */}
@@ -70,6 +79,13 @@ export function CommerceCard({
             {typeInfo.label}
           </Text>
         </View>
+
+        {/* Savings badge — bottom left */}
+        {savingsPct > 0 && (
+          <View style={[styles.savingsBadge, { backgroundColor: badge.bg }]}>
+            <Text style={styles.savingsBadgeText}>-{savingsPct}%</Text>
+          </View>
+        )}
 
         {/* Heart — top right */}
         <TouchableOpacity
@@ -80,9 +96,26 @@ export function CommerceCard({
           <Ionicons
             name={favorited ? 'heart' : 'heart-outline'}
             size={18}
-            color="#EF4444"
+            color={favorited ? '#EF4444' : '#6B7280'}
           />
         </TouchableOpacity>
+
+        {/* Commerce logo — bottom right */}
+        <View style={styles.commerceLogoWrap}>
+          {commerce?.logo_url ? (
+            <Image
+              source={{ uri: commerce.logo_url }}
+              style={styles.commerceLogoImg}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.commerceLogoPlaceholder}>
+              <Text style={styles.commerceLogoInitial}>
+                {(commerce?.name ?? 'C').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* ── Body ── */}
@@ -116,17 +149,33 @@ export function CommerceCard({
           </View>
         </View>
 
+        {/* Divider */}
+        <View style={styles.divider} />
+
         {/* Price + Réserver */}
         <View style={styles.priceRow}>
           <View style={styles.priceGroup}>
             <Text style={styles.originalPrice}>{basket.original_price.toFixed(2)}€</Text>
             <Text style={styles.soldPrice}>{basket.sold_price.toFixed(2)}€</Text>
           </View>
-          {showReserveButton && (
-            <TouchableOpacity style={styles.reserveBtn} onPress={handlePress}>
-              <Text style={styles.reserveBtnText}>Réserver</Text>
-            </TouchableOpacity>
-          )}
+
+          <View style={styles.rightGroup}>
+            {/* Stock indicator */}
+            {isLowStock && (
+              <View style={styles.lowStockBadge}>
+                <Ionicons name="flame" size={10} color="#F97316" />
+                <Text style={styles.lowStockText}>{remaining} restant{remaining > 1 ? 's' : ''}</Text>
+              </View>
+            )}
+            {remaining > 2 && (
+              <Text style={styles.stockText}>{remaining} dispo.</Text>
+            )}
+            {showReserveButton && (
+              <TouchableOpacity style={styles.reserveBtn} onPress={handlePress}>
+                <Text style={styles.reserveBtnText}>Réserver</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -136,22 +185,23 @@ export function CommerceCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
     marginBottom: 16,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 10,
+        shadowColor: '#1e293b',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.09,
+        shadowRadius: 12,
       },
-      android: { elevation: 3 },
+      android: { elevation: 4 },
     }),
   },
   imageWrap: {
     height: 190,
     position: 'relative',
+    overflow: 'hidden',
   },
   image: {
     width: '100%',
@@ -162,9 +212,6 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  placeholderEmoji: {
-    fontSize: 64,
   },
   categoryBadge: {
     position: 'absolute',
@@ -178,29 +225,92 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  savingsBadge: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#3744C8',
+  },
+  savingsBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
   heartBtn: {
     position: 'absolute',
     top: 10,
     right: 10,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.12,
+        shadowRadius: 4,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  commerceLogoWrap: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2.5,
+    borderColor: '#fff',
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+      android: { elevation: 3 },
+    }),
+  },
+  commerceLogoImg: {
+    width: '100%',
+    height: '100%',
+  },
+  commerceLogoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#3744C8',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  commerceLogoInitial: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#fff',
+  },
   body: {
-    padding: 14,
-    gap: 4,
+    padding: 16,
+    gap: 5,
   },
   commerceName: {
     fontSize: 17,
     fontWeight: '700',
     color: '#111827',
+    letterSpacing: -0.2,
   },
   commerceType: {
     fontSize: 13,
     color: '#6B7280',
+    fontWeight: '400',
   },
   metaRow: {
     flexDirection: 'row',
@@ -217,26 +327,57 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
+  divider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginVertical: 4,
+  },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 6,
   },
   priceGroup: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    alignItems: 'baseline',
+    gap: 6,
   },
   originalPrice: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#9CA3AF',
     textDecorationLine: 'line-through',
   },
   soldPrice: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#3B82F6',
+    color: '#3744C8',
+    letterSpacing: -0.5,
+  },
+  rightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  lowStockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  lowStockText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#F97316',
+  },
+  stockText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '500',
   },
   reserveBtn: {
     backgroundColor: '#3744C8',
