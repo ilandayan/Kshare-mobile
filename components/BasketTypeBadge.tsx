@@ -11,9 +11,9 @@ export function BasketTypeBadge({ type, size = 'md' }: BasketTypeBadgeProps) {
   const info = BASKET_TYPE_LABELS[type];
 
   const sizeStyles = {
-    sm: { paddingHorizontal: 6, paddingVertical: 2, fontSize: 10, emojiSize: 12 },
-    md: { paddingHorizontal: 8, paddingVertical: 4, fontSize: 12, emojiSize: 14 },
-    lg: { paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, emojiSize: 18 },
+    sm: { paddingHorizontal: 8, paddingVertical: 4, fontSize: 10 },
+    md: { paddingHorizontal: 10, paddingVertical: 5, fontSize: 12 },
+    lg: { paddingHorizontal: 16, paddingVertical: 8, fontSize: 15 },
   };
 
   const s = sizeStyles[size];
@@ -23,17 +23,16 @@ export function BasketTypeBadge({ type, size = 'md' }: BasketTypeBadgeProps) {
       style={[
         styles.badge,
         {
-          backgroundColor: info.bgColor,
+          backgroundColor: info.color,
           paddingHorizontal: s.paddingHorizontal,
           paddingVertical: s.paddingVertical,
-          borderColor: info.color + '40',
         },
       ]}
     >
       <Text
         style={[
           styles.label,
-          { color: info.color, fontSize: s.fontSize },
+          { fontSize: s.fontSize },
         ]}
       >
         {info.label}
@@ -46,12 +45,13 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    borderRadius: 20,
-    borderWidth: 1,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#ffffff',
     alignSelf: 'flex-start',
   },
   label: {
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#ffffff',
   },
 });
