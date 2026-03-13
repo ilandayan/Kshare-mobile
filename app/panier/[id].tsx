@@ -183,7 +183,7 @@ export default function BasketDetailPage() {
             <View style={styles.favIconCircle}>
               <Ionicons
                 name={favorited ? 'heart' : 'heart-outline'}
-                size={18}
+                size={22}
                 color={favorited ? '#ef4444' : '#374151'}
               />
             </View>
@@ -455,9 +455,9 @@ const styles = StyleSheet.create({
     right: 16,
   },
   favIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
