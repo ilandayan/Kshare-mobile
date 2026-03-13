@@ -234,6 +234,11 @@ export default function BasketDetailPage() {
             </View>
           </View>
 
+          {/* Description */}
+          {basket.description && (
+            <Text style={styles.description}>{basket.description}</Text>
+          )}
+
           {/* Prix */}
           <View style={styles.priceSection}>
             <View style={styles.priceRow}>
@@ -249,11 +254,6 @@ export default function BasketDetailPage() {
               Vous économisez {((basket.original_price - basket.sold_price) * quantity).toFixed(2)} €
             </Text>
           </View>
-
-          {/* Description */}
-          {basket.description && (
-            <Text style={styles.description}>{basket.description}</Text>
-          )}
 
           {/* Horaires retrait */}
           <View style={styles.infoCard}>
