@@ -484,9 +484,7 @@ const styles = StyleSheet.create({
     }),
   },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    paddingTop: 0,
+    padding: 20,
     gap: 20,
   },
   commerceSection: {
