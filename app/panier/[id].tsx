@@ -236,7 +236,7 @@ export default function BasketDetailPage() {
 
           {/* Description */}
           {basket.description && (
-            <Text style={styles.description}>{basket.description}</Text>
+            <Text style={styles.description}>{basket.description.replace(/\.$/, '')}</Text>
           )}
 
           {/* Prix */}
