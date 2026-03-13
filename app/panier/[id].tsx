@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingBottom: 20,
-    paddingTop: 14,
+    paddingTop: 18,
     gap: 12,
   },
   commerceSection: {
