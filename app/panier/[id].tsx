@@ -484,8 +484,10 @@ const styles = StyleSheet.create({
     }),
   },
   content: {
-    padding: 20,
-    gap: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 10,
+    gap: 12,
   },
   commerceSection: {
     backgroundColor: '#ffffff',
@@ -524,7 +526,7 @@ const styles = StyleSheet.create({
   },
   detailSection: {
     gap: 12,
-    marginTop: 16,
+    marginTop: 0,
   },
   descriptionUnderHero: {
     paddingHorizontal: 16,
