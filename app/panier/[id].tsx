@@ -19,6 +19,7 @@ import { useAppStore } from '@/lib/store';
 import { usePayment } from '@/lib/usePayment';
 import { BasketTypeBadge } from '@/components/BasketTypeBadge';
 import { BASKET_TYPE_LABELS, type Basket } from '@/lib/types';
+import { getCommerceImage } from '@/lib/commerceImages';
 
 const COMMERCE_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
   Boucherie:   'food-steak',
@@ -27,8 +28,6 @@ const COMMERCE_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.gl
   Traiteur:    'food-variant',
   Épicerie:    'storefront-outline',
   Restaurant:  'silverware-fork-knife',
-  Fromagerie:  'cheese',
-  Pâtisserie:  'cupcake',
 };
 
 function getCommerceIcon(commerceType: string | null | undefined): keyof typeof MaterialCommunityIcons.glyphMap {
@@ -45,7 +44,7 @@ async function fetchBasket(id: string): Promise<Basket | null> {
       original_price, sold_price,
       quantity_total, quantity_reserved, quantity_sold,
       status, is_donation, pickup_start, pickup_end, created_at, commerce_id,
-      commerces (id, name, address, city, postal_code, logo_url, hashgakha, commerce_type, latitude, longitude)
+      commerces (id, name, address, city, postal_code, logo_url, photos, hashgakha, commerce_type, latitude, longitude)
     `,
     )
     .eq('id', id)
@@ -107,6 +106,12 @@ export default function BasketDetailPage() {
       return;
     }
 
+    if (quantity > remaining) {
+      Alert.alert('Stock insuffisant', `Seulement ${remaining} panier${remaining > 1 ? 's' : ''} disponible${remaining > 1 ? 's' : ''}.`);
+      setQuantity(remaining);
+      return;
+    }
+
     setIsCheckingOut(true);
 
     try {
@@ -159,6 +164,12 @@ export default function BasketDetailPage() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Hero visuel */}
         <View style={[styles.hero, { backgroundColor: typeInfo.bgColor }]}>
+          {(() => {
+            const heroImage = getCommerceImage(basket.commerces?.photos, basket.commerces?.commerce_type);
+            return heroImage ? (
+              <Image source={heroImage} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+            ) : null;
+          })()}
           <View style={[styles.discountBadge, { backgroundColor: typeInfo.color }]}>
             <Text style={styles.discountText}>-{discount}%</Text>
           </View>
@@ -166,12 +177,16 @@ export default function BasketDetailPage() {
             style={styles.favButton}
             onPress={() => toggleFavorite(commerceId)}
             hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel={favorited ? 'Retirer des favoris' : 'Ajouter aux favoris'}
           >
-            <Ionicons
-              name={favorited ? 'heart' : 'heart-outline'}
-              size={26}
-              color={favorited ? '#ef4444' : '#6b7280'}
-            />
+            <View style={styles.favIconCircle}>
+              <Ionicons
+                name={favorited ? 'heart' : 'heart-outline'}
+                size={18}
+                color={favorited ? '#ef4444' : '#374151'}
+              />
+            </View>
           </TouchableOpacity>
           {/* Commerce logo — bottom right */}
           <View style={styles.commerceLogo}>
@@ -346,6 +361,9 @@ export default function BasketDetailPage() {
           onPress={handleReserve}
           disabled={isSoldOut || isCheckingOut}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={isSoldOut ? 'Rupture de stock' : `Réserver ${quantity} panier${quantity > 1 ? 's' : ''}`}
+          accessibilityState={{ disabled: isSoldOut || isCheckingOut }}
         >
           {isCheckingOut ? (
             <ActivityIndicator color="#ffffff" />
@@ -435,9 +453,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     right: 16,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 24,
-    padding: 8,
+  },
+  favIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3 },
+      android: { elevation: 2 },
+    }),
   },
   content: {
     padding: 20,
