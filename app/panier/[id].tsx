@@ -189,22 +189,7 @@ export default function BasketDetailPage() {
               />
             </View>
           </TouchableOpacity>
-          {/* Commerce logo — bottom right */}
-          <View style={styles.commerceLogo}>
-            {basket.commerces?.logo_url ? (
-              <Image
-                source={{ uri: basket.commerces.logo_url }}
-                style={styles.commerceLogoImg}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.commerceLogoInitialCircle}>
-                <Text style={styles.commerceLogoInitial}>
-                  {(basket.commerces?.name ?? 'C').charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
-          </View>
+          {/* Commerce logo removed from hero — now inline with badge */}
         </View>
 
         <View style={styles.content}>
@@ -229,7 +214,24 @@ export default function BasketDetailPage() {
 
           {/* Type & description */}
           <View style={styles.detailSection}>
-            <BasketTypeBadge type={basket.type} size="lg" />
+            <View style={styles.badgeLogoRow}>
+              <BasketTypeBadge type={basket.type} size="lg" />
+              <View style={styles.commerceLogo}>
+                {basket.commerces?.logo_url ? (
+                  <Image
+                    source={{ uri: basket.commerces.logo_url }}
+                    style={styles.commerceLogoImg}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.commerceLogoInitialCircle}>
+                    <Text style={styles.commerceLogoInitial}>
+                      {(basket.commerces?.name ?? 'C').charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
             {basket.description && (
               <Text style={styles.description}>{basket.description}</Text>
             )}
@@ -410,39 +412,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
+  badgeLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   commerceLogo: {
-    position: 'absolute',
-    bottom: -30,
-    right: 16,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: '#ffffff',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4 },
-      android: { elevation: 4 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3 },
+      android: { elevation: 3 },
     }),
-    zIndex: 10,
   },
   commerceLogoImg: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   commerceLogoInitialCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#3744C8',
     alignItems: 'center',
     justifyContent: 'center',
   },
   commerceLogoInitial: {
-    fontSize: 26,
+    fontSize: 16,
     fontWeight: '800',
     color: '#ffffff',
   },
