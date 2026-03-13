@@ -13,7 +13,7 @@ export function BasketTypeBadge({ type, size = 'md' }: BasketTypeBadgeProps) {
   const sizeStyles = {
     sm: { paddingHorizontal: 6, paddingVertical: 2, fontSize: 10, emojiSize: 12 },
     md: { paddingHorizontal: 8, paddingVertical: 4, fontSize: 12, emojiSize: 14 },
-    lg: { paddingHorizontal: 12, paddingVertical: 6, fontSize: 14, emojiSize: 18 },
+    lg: { paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, emojiSize: 18 },
   };
 
   const s = sizeStyles[size];
@@ -30,7 +30,6 @@ export function BasketTypeBadge({ type, size = 'md' }: BasketTypeBadgeProps) {
         },
       ]}
     >
-      <Text style={{ fontSize: s.emojiSize }}>{info.emoji}</Text>
       <Text
         style={[
           styles.label,
