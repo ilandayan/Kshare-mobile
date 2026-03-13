@@ -185,6 +185,7 @@ export default function BasketDetailPage() {
                 name={favorited ? 'heart' : 'heart-outline'}
                 size={22}
                 color={favorited ? '#ef4444' : '#374151'}
+                style={{ marginTop: 1 }}
               />
             </View>
           </TouchableOpacity>
