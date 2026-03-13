@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
   },
   detailSection: {
     gap: 12,
-    marginTop: 8,
+    marginTop: 16,
   },
   descriptionUnderHero: {
     paddingHorizontal: 16,
