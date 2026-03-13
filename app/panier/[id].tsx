@@ -458,8 +458,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderWidth: 2,
-    borderColor: '#ffffff',
   },
   discountText: {
     color: '#ffffff',
