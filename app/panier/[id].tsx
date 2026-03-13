@@ -192,6 +192,13 @@ export default function BasketDetailPage() {
           {/* Commerce logo removed from hero — now inline with badge */}
         </View>
 
+        {/* Description sous l'image */}
+        {basket.description && (
+          <View style={styles.descriptionUnderHero}>
+            <Text style={styles.description}>{basket.description}</Text>
+          </View>
+        )}
+
         <View style={styles.content}>
           {/* Commerce info */}
           <View style={styles.commerceSection}>
@@ -232,9 +239,6 @@ export default function BasketDetailPage() {
                 )}
               </View>
             </View>
-            {basket.description && (
-              <Text style={styles.description}>{basket.description}</Text>
-            )}
           </View>
 
           {/* Prix */}
@@ -522,6 +526,11 @@ const styles = StyleSheet.create({
   },
   detailSection: {
     gap: 12,
+  },
+  descriptionUnderHero: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   description: {
     fontSize: 15,
