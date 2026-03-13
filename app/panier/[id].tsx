@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   },
   commerceLogo: {
     position: 'absolute',
-    bottom: 12,
+    bottom: -30,
     right: 16,
     width: 64,
     height: 64,
@@ -420,12 +420,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: '#ffffff',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4 },
       android: { elevation: 4 },
     }),
+    zIndex: 10,
   },
   commerceLogoImg: {
     width: 60,
