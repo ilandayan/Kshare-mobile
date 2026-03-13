@@ -46,8 +46,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#ffffff',
     alignSelf: 'flex-start',
   },
   label: {
