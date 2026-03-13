@@ -198,11 +198,11 @@ export default function BasketDetailPage() {
                 resizeMode="cover"
               />
             ) : (
-              <MaterialCommunityIcons
-                name={getCommerceIcon(basket.commerces?.commerce_type)}
-                size={28}
-                color="#9CA3AF"
-              />
+              <View style={styles.commerceLogoInitialCircle}>
+                <Text style={styles.commerceLogoInitial}>
+                  {(basket.commerces?.name ?? 'C').charAt(0).toUpperCase()}
+                </Text>
+              </View>
             )}
           </View>
         </View>
@@ -432,10 +432,18 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
   },
+  commerceLogoInitialCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#3744C8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   commerceLogoInitial: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#3744C8',
+    color: '#ffffff',
   },
   discountBadge: {
     position: 'absolute',
