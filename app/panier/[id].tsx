@@ -192,13 +192,6 @@ export default function BasketDetailPage() {
           {/* Commerce logo removed from hero — now inline with badge */}
         </View>
 
-        {/* Description sous l'image */}
-        {basket.description && (
-          <View style={styles.descriptionUnderHero}>
-            <Text style={styles.description}>{basket.description}</Text>
-          </View>
-        )}
-
         <View style={styles.content}>
           {/* Commerce info */}
           <View style={styles.commerceSection}>
@@ -240,6 +233,11 @@ export default function BasketDetailPage() {
               </View>
             </View>
           </View>
+
+          {/* Description */}
+          {basket.description && (
+            <Text style={styles.description}>{basket.description}</Text>
+          )}
 
           {/* Prix */}
           <View style={styles.priceSection}>
