@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   badgeLogoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-between',
   },
   commerceLogo: {
     width: 40,
