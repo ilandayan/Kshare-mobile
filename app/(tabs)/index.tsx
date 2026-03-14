@@ -474,8 +474,7 @@ export default function AccueilPage() {
                 key={cat.type}
                 style={[
                   styles.catChip,
-                  { borderColor: cat.bg + '60' },
-                  active && { backgroundColor: cat.bg, borderColor: cat.bg },
+                  active && { backgroundColor: cat.bg },
                   dimmed && styles.catChipDimmed,
                 ]}
                 onPress={() =>
@@ -854,7 +853,6 @@ const styles = StyleSheet.create({
   },
   catChipDimmed: {
     opacity: 0.35,
-    borderColor: '#D1D5DB',
   },
   catChipTextDimmed: {
     color: '#9CA3AF',
