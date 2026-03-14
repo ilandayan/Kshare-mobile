@@ -843,7 +843,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1.5,
-    backgroundColor: '#fff',
+    backgroundColor: '#F3F4F6',
   },
   catChipText: {
     fontSize: 13,
