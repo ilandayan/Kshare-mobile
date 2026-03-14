@@ -76,11 +76,13 @@ export function CommerceCard({
           <View style={[styles.imagePlaceholder, { backgroundColor: typeInfo.bgColor }]} />
         )}
 
-        {/* Category badge — top left */}
-        <View style={[styles.categoryBadge, { backgroundColor: badge.bg }]}>
-          <Text style={[styles.categoryBadgeText, { color: badge.text }]}>
-            {typeInfo.label}
-          </Text>
+        {/* Category ribbon — diagonal top left */}
+        <View style={styles.ribbonWrapper}>
+          <View style={[styles.ribbon, { backgroundColor: badge.bg }]}>
+            <Text style={[styles.ribbonText, { color: badge.text }]}>
+              {typeInfo.label}
+            </Text>
+          </View>
         </View>
 
         {/* Savings badge — bottom left */}
@@ -216,17 +218,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryBadge: {
+  ribbonWrapper: {
     position: 'absolute',
-    top: 12,
-    left: 12,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    top: 0,
+    left: 0,
+    width: 130,
+    height: 130,
+    overflow: 'hidden',
+    zIndex: 2,
   },
-  categoryBadgeText: {
-    fontSize: 14,
-    fontWeight: '700',
+  ribbon: {
+    position: 'absolute',
+    top: 22,
+    left: -34,
+    width: 160,
+    paddingVertical: 6,
+    alignItems: 'center',
+    transform: [{ rotate: '-45deg' }],
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+      },
+      android: { elevation: 4 },
+    }),
+  },
+  ribbonText: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   savingsBadge: {
     position: 'absolute',
