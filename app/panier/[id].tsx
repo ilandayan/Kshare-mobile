@@ -54,15 +54,26 @@ async function fetchBasket(id: string): Promise<Basket | null> {
   return data as unknown as Basket;
 }
 
-function formatTime(isoString: string) {
-  return new Date(isoString).toLocaleTimeString('fr-FR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+function formatTime(value: string) {
+  // Handle plain time format "HH:MM:SS" or "HH:MM"
+  if (/^\d{2}:\d{2}(:\d{2})?$/.test(value)) {
+    return value.slice(0, 5);
+  }
+  // Handle full ISO date string
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '--:--';
+  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatDate(isoString: string) {
-  const date = new Date(isoString);
+function formatDate(value: string) {
+  // Handle "today" / "tomorrow" string from DB `day` column
+  if (value === 'today') return "Aujourd'hui";
+  if (value === 'tomorrow') return 'Demain';
+
+  // Handle full ISO date string
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return value;
+
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -264,7 +275,7 @@ export default function BasketDetailPage() {
               <View>
                 <Text style={styles.infoLabel}>Date de retrait</Text>
                 <Text style={styles.infoValue}>
-                  {formatDate(basket.pickup_start)}
+                  {formatDate(basket.day ?? basket.pickup_start)}
                 </Text>
               </View>
             </View>
