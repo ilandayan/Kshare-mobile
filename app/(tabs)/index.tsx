@@ -724,6 +724,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 30,
+    paddingBottom: '10%',
   },
   modalCard: {
     backgroundColor: '#fff',
