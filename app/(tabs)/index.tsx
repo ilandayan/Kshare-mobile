@@ -687,9 +687,8 @@ const styles = StyleSheet.create({
   headerLogo: {
     width: 38,
     height: 38,
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: 'transparent',
   },
   headerBrandShare: {
     fontSize: 21,
