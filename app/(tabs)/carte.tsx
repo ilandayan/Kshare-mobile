@@ -15,8 +15,21 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import MapView, { Circle, Marker, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
+
+// react-native-maps only works on native (iOS/Android), not web
+let MapView: any = null;
+let Circle: any = null;
+let Marker: any = null;
+let Callout: any = null;
+if (Platform.OS !== 'web') {
+  const Maps = require('react-native-maps');
+  MapView = Maps.default;
+  Circle = Maps.Circle;
+  Marker = Maps.Marker;
+  Callout = Maps.Callout;
+}
+const IS_NATIVE = Platform.OS !== 'web';
 import { supabase } from '@/lib/supabase';
 import { BASKET_TYPE_LABELS, type Basket } from '@/lib/types';
 import { getCommerceImage } from '@/lib/commerceImages';
@@ -217,15 +230,24 @@ export default function CartePage() {
       .sort((a, b) => a.distance - b.distance);
   }, [baskets, userLocation, radiusKm]);
 
-  // Unique commerces for markers (deduplicate by commerce_id)
+  // Group baskets by commerce for multi-color markers
   const commerceMarkers = useMemo(() => {
-    const seen = new Set<string>();
-    return nearbyBaskets.filter(({ basket }) => {
+    const grouped = new Map<string, { commerce: Basket['commerces']; distance: number; types: Set<string>; firstBasketId: string }>();
+    for (const { basket, distance } of nearbyBaskets) {
       const cid = basket.commerce_id;
-      if (seen.has(cid)) return false;
-      seen.add(cid);
-      return true;
-    });
+      const existing = grouped.get(cid);
+      if (existing) {
+        existing.types.add(basket.type);
+      } else {
+        grouped.set(cid, {
+          commerce: basket.commerces,
+          distance,
+          types: new Set([basket.type]),
+          firstBasketId: basket.id,
+        });
+      }
+    }
+    return Array.from(grouped.values());
   }, [nearbyBaskets]);
 
   if (!userLocation) {
@@ -244,51 +266,72 @@ export default function CartePage() {
       </SafeAreaView>
 
       {/* Map */}
-      <MapView
-        ref={mapRef}
-        style={styles.mapContainer}
-        initialRegion={{
-          latitude: userLocation.latitude,
-          longitude: userLocation.longitude,
-          latitudeDelta: deltaForKm(radiusKm),
-          longitudeDelta: deltaForKm(radiusKm),
-        }}
-        showsUserLocation
-        showsMyLocationButton
-      >
-        {/* Radius circle */}
-        <Circle
-          center={userLocation}
-          radius={radiusKm * 1000}
-          fillColor="rgba(55, 68, 200, 0.07)"
-          strokeColor="rgba(55, 68, 200, 0.25)"
-          strokeWidth={1.5}
-        />
+      {IS_NATIVE && MapView ? (
+        <MapView
+          ref={mapRef}
+          style={styles.mapContainer}
+          initialRegion={{
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+            latitudeDelta: deltaForKm(radiusKm),
+            longitudeDelta: deltaForKm(radiusKm),
+          }}
+          showsUserLocation
+          showsMyLocationButton
+        >
+          {/* Radius circle */}
+          <Circle
+            center={userLocation}
+            radius={radiusKm * 1000}
+            fillColor="rgba(55, 68, 200, 0.07)"
+            strokeColor="rgba(55, 68, 200, 0.25)"
+            strokeWidth={1.5}
+          />
 
-        {/* Commerce markers */}
-        {commerceMarkers.map(({ basket, distance }) => {
-          const commerce = basket.commerces!;
-          const badgeColor = BADGE_CONFIG[basket.type]?.bg ?? '#3744C8';
-          return (
-            <Marker
-              key={commerce.id}
-              coordinate={{ latitude: commerce.latitude!, longitude: commerce.longitude! }}
-              pinColor={badgeColor}
-            >
-              <Callout onPress={() => router.push(`/panier/${basket.id}`)}>
-                <View style={styles.callout}>
-                  <Text style={styles.calloutTitle}>{commerce.name}</Text>
-                  <Text style={styles.calloutSub}>
-                    {distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(1)} km`}
-                    {' · '}
-                    {basket.sold_price.toFixed(2)}€
-                  </Text>
+          {/* Commerce markers */}
+          {commerceMarkers.map(({ commerce, distance, types, firstBasketId }) => {
+            const typeColors = Array.from(types).map((t) => BADGE_CONFIG[t]?.bg ?? '#3744C8');
+            return (
+              <Marker
+                key={commerce!.id}
+                coordinate={{ latitude: commerce!.latitude!, longitude: commerce!.longitude! }}
+              >
+                {/* Custom multi-color marker */}
+                <View style={styles.markerContainer}>
+                  <View style={styles.markerPin}>
+                    <View style={styles.markerDots}>
+                      {typeColors.map((color, i) => (
+                        <View key={i} style={[styles.markerDot, { backgroundColor: color }]} />
+                      ))}
+                    </View>
+                  </View>
+                  <View style={styles.markerArrow} />
                 </View>
-              </Callout>
-            </Marker>
-          );
-        })}
-      </MapView>
+                <Callout onPress={() => router.push(`/panier/${firstBasketId}`)}>
+                  <View style={styles.callout}>
+                    <Text style={styles.calloutTitle}>{commerce!.name}</Text>
+                    <Text style={styles.calloutSub}>
+                      {distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(1)} km`}
+                      {' · '}
+                      {types.size} panier{types.size > 1 ? 's' : ''}
+                    </Text>
+                  </View>
+                </Callout>
+              </Marker>
+            );
+          })}
+        </MapView>
+      ) : (
+        <View style={[styles.mapContainer, styles.webMapFallback]}>
+          <Ionicons name="map-outline" size={48} color="#9CA3AF" />
+          <Text style={{ color: '#6B7280', marginTop: 8, fontSize: 14 }}>
+            Carte disponible sur l'app mobile
+          </Text>
+          <Text style={{ color: '#9CA3AF', fontSize: 12, marginTop: 4 }}>
+            {nearbyBaskets.length} commerce{nearbyBaskets.length > 1 ? 's' : ''} dans un rayon de {radiusKm} km
+          </Text>
+        </View>
+      )}
 
       {/* Radius selector */}
       <View style={styles.radiusSelector}>
@@ -366,23 +409,28 @@ export default function CartePage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E8EDF5',
+    backgroundColor: '#ffffff',
   },
   safeTop: {
-    backgroundColor: '#F8F9FC',
+    backgroundColor: '#ffffff',
   },
 
   // Map
   mapContainer: {
     height: '42%',
   },
+  webMapFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+  },
 
   // Radius selector
   radiusSelector: {
     position: 'absolute',
-    top: '33%',
+    top: '42%',
     left: 12,
-    flexDirection: 'column',
+    flexDirection: 'row',
     gap: 6,
     zIndex: 10,
   },
@@ -408,6 +456,40 @@ const styles = StyleSheet.create({
   },
   radiusBtnTextActive: {
     color: '#ffffff',
+  },
+
+  // Custom marker
+  markerContainer: {
+    alignItems: 'center',
+  },
+  markerPin: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 4,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4 },
+      android: { elevation: 4 },
+    }),
+  },
+  markerDots: {
+    flexDirection: 'row',
+    gap: 3,
+  },
+  markerDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  markerArrow: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#ffffff',
+    marginTop: -1,
   },
 
   // Callout

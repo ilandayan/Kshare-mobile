@@ -13,28 +13,47 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
-import { BASKET_TYPE_LABELS, type Order, type BasketType } from '@/lib/types';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BASKET_TYPE_LABELS, type Order, type BasketType, type OrderStatus } from '@/lib/types';
+import { getCommerceImage } from '@/lib/commerceImages';
+import { MOCK_ORDERS } from '@/lib/mockOrders';
 
 // ── Badge configs ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
-  pending:   { label: 'En cours',  bg: '#DCFCE7', color: '#16A34A' },
-  confirmed: { label: 'En cours',  bg: '#DCFCE7', color: '#16A34A' },
-  picked_up: { label: 'Terminée',  bg: '#F3F4F6', color: '#6B7280' },
-  cancelled: { label: 'Annulée',   bg: '#FEE2E2', color: '#EF4444' },
-  refunded:  { label: 'Remboursée',bg: '#F3F4F6', color: '#6B7280' },
+  created:          { label: 'En attente',      bg: '#FEF3C7', color: '#D97706' },
+  paid:             { label: 'En cours',         bg: '#DCFCE7', color: '#16A34A' },
+  ready_for_pickup: { label: 'Prêt à retirer',  bg: '#DBEAFE', color: '#2563EB' },
+  picked_up:        { label: 'Terminée',         bg: '#F3F4F6', color: '#6B7280' },
+  no_show:          { label: 'Non récupéré',     bg: '#FEE2E2', color: '#EF4444' },
+  refunded:         { label: 'Remboursée',       bg: '#F3F4F6', color: '#6B7280' },
+  cancelled_admin:  { label: 'Annulée',          bg: '#FEE2E2', color: '#EF4444' },
 };
 
 const BASKET_BADGE: Record<string, { bg: string; text: string }> = {
-  bassari: { bg: '#FEF2F2', text: '#EF4444' },
-  halavi:  { bg: '#EFF6FF', text: '#3B82F6' },
-  parve:   { bg: '#F0FDF4', text: '#10B981' },
-  shabbat: { bg: '#FFFBEB', text: '#F59E0B' },
-  mix:     { bg: '#F5F3FF', text: '#8B5CF6' },
+  bassari: { bg: '#FEF2F2', text: '#D94452' },
+  halavi:  { bg: '#EFF6FF', text: '#2E8BBE' },
+  parve:   { bg: '#F0FDF4', text: '#2A9D6E' },
+  shabbat: { bg: '#FFFBEB', text: '#D97B1A' },
+  mix:     { bg: '#F5F3FF', text: '#7B5CC0' },
 };
+
+const COMMERCE_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  Boucherie:   'food-steak',
+  Boulangerie: 'bread-slice',
+  Supermarché: 'cart-outline',
+  Traiteur:    'food-variant',
+  Épicerie:    'storefront-outline',
+  Restaurant:  'silverware-fork-knife',
+};
+
+function getCommerceIcon(commerceType: string | null | undefined): keyof typeof MaterialCommunityIcons.glyphMap {
+  if (!commerceType) return 'storefront-outline';
+  return COMMERCE_TYPE_ICONS[commerceType] ?? 'storefront-outline';
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getOrderNumber(id: string): string {
@@ -74,7 +93,7 @@ async function fetchOrders(userId: string): Promise<Order[]> {
        baskets (
          type, pickup_start, pickup_end, original_price, sold_price,
          description, is_donation,
-         commerces (name, address, city, postal_code, logo_url, commerce_type)
+         commerces (name, address, city, postal_code, logo_url, photos, commerce_type)
        ),
        associations (name)`,
     )
@@ -129,13 +148,20 @@ function OrderCard({ order, tab }: { order: Order; tab: 'en_cours' | 'passees' |
       <View style={styles.cardBody}>
         {/* Thumbnail */}
         <View style={styles.thumb}>
-          {commerce?.logo_url ? (
-            <Image source={{ uri: commerce.logo_url }} style={styles.thumbImg} resizeMode="cover" />
-          ) : (
-            <View style={[styles.thumbPlaceholder, { backgroundColor: typeInfo.bgColor }]}>
-              <Text style={styles.thumbEmoji}>{typeInfo.emoji}</Text>
-            </View>
-          )}
+          {(() => {
+            const coverImage = getCommerceImage(commerce?.photos, commerce?.commerce_type);
+            return coverImage ? (
+              <Image source={coverImage} style={styles.thumbImg} resizeMode="cover" />
+            ) : (
+              <View style={[styles.thumbPlaceholder, { backgroundColor: typeInfo.bgColor }]}>
+                <MaterialCommunityIcons
+                  name={getCommerceIcon(commerce?.commerce_type)}
+                  size={30}
+                  color="#9CA3AF"
+                />
+              </View>
+            );
+          })()}
         </View>
 
         {/* Info */}
@@ -207,11 +233,15 @@ export default function PaniersPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('en_cours');
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: orders = [], isLoading, refetch } = useQuery({
+  const { data: rawOrders = [], isLoading, refetch } = useQuery({
     queryKey: ['orders', user?.id],
     queryFn: () => (user?.id ? fetchOrders(user.id) : Promise.resolve([])),
     enabled: !!user?.id,
   });
+
+  // Use mock data when no real orders exist (demo mode)
+  const orders = rawOrders.length > 0 ? rawOrders : MOCK_ORDERS;
+  const isDemo = rawOrders.length === 0;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -219,8 +249,8 @@ export default function PaniersPage() {
     setRefreshing(false);
   }, [refetch]);
 
-  const enCours  = orders.filter((o) => ['pending', 'confirmed'].includes(o.status) && !o.is_donation);
-  const passees  = orders.filter((o) => ['picked_up', 'cancelled', 'refunded'].includes(o.status));
+  const enCours  = orders.filter((o) => ['created', 'paid', 'ready_for_pickup'].includes(o.status) && !o.is_donation);
+  const passees  = orders.filter((o) => ['picked_up', 'no_show', 'cancelled_admin', 'refunded'].includes(o.status) && !o.is_donation);
   const dons     = orders.filter((o) => o.is_donation);
 
   const tabOrders: Record<TabKey, Order[]> = { en_cours: enCours, passees, dons };
@@ -239,7 +269,12 @@ export default function PaniersPage() {
       <StatusBar style="dark" />
 
       {/* ── Header ── */}
-      <View style={styles.header}>
+      <LinearGradient
+        colors={['#1e2a78', '#2d4de0', '#4f6df5']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
         <Text style={styles.title}>Mes Paniers</Text>
         <Text style={styles.subtitle}>
           {totalCount} panier{totalCount !== 1 ? 's' : ''}
@@ -265,7 +300,14 @@ export default function PaniersPage() {
             </TouchableOpacity>
           ))}
         </View>
-      </View>
+      </LinearGradient>
+
+      {/* Demo banner */}
+      {isDemo && (
+        <View style={styles.demoBanner}>
+          <Text style={styles.demoBannerText}>Données de démonstration</Text>
+        </View>
+      )}
 
       {/* ── List ── */}
       {isLoading ? (
@@ -313,26 +355,25 @@ export default function PaniersPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FC',
+    backgroundColor: '#ffffff',
   },
 
   // Header
   header: {
-    backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   title: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#111827',
+    color: '#fff',
   },
   subtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#fff',
     marginTop: 3,
     marginBottom: 16,
   },
@@ -345,21 +386,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   tabPillActive: {
-    backgroundColor: '#3744C8',
-    borderColor: '#3744C8',
+    backgroundColor: '#fff',
+    borderColor: '#fff',
   },
   tabPillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#fff',
   },
   tabPillTextActive: {
-    color: '#fff',
+    color: '#1e2a78',
   },
 
   loader: {
@@ -443,8 +484,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  thumbEmoji: {
-    fontSize: 30,
+  thumbInitial: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#3744C8',
   },
   cardInfo: {
     flex: 1,
@@ -514,7 +557,7 @@ const styles = StyleSheet.create({
   soldPrice: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#3B82F6',
+    color: '#3744C8',
   },
   detailsBtn: {
     marginLeft: 'auto',
@@ -529,6 +572,20 @@ const styles = StyleSheet.create({
   detailsBtnText: {
     color: '#fff',
     fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Demo banner
+  demoBanner: {
+    backgroundColor: '#FEF3C7',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FDE68A',
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  demoBannerText: {
+    fontSize: 12,
+    color: '#92400E',
     fontWeight: '600',
   },
 

@@ -93,7 +93,7 @@ export default function SupportPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F5F9',
+    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: 'row',

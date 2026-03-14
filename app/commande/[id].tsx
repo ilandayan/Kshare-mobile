@@ -116,25 +116,72 @@ export default function CommandePage() {
     queryClient.invalidateQueries({ queryKey: ['orders'] });
   };
 
-  const handleOpenMaps = () => {
+  const handleOpenMaps = async () => {
     if (!order?.baskets?.commerces) return;
 
-    const address = `${order.baskets.commerces.address}, ${order.baskets.commerces.postal_code ?? ''} ${order.baskets.commerces.city}`;
+    const commerce = order.baskets.commerces;
+    const address = `${commerce.address}, ${commerce.postal_code ?? ''} ${commerce.city}`;
     const encodedAddress = encodeURIComponent(address);
 
-    const url = Platform.OS === 'ios'
-      ? `maps:?q=${encodedAddress}`
-      : `geo:0,0?q=${encodedAddress}`;
+    // Build available map app options
+    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+    const wazeUrl = `https://waze.com/ul?q=${encodedAddress}&navigate=yes`;
 
-    Linking.canOpenURL(url).then((canOpen) => {
-      if (canOpen) {
-        Linking.openURL(url);
-      } else {
-        Linking.openURL(
-          `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`,
-        );
-      }
-    });
+    if (Platform.OS === 'web') {
+      Linking.openURL(googleMapsUrl);
+      return;
+    }
+
+    type MapOption = { name: string; url: string };
+    const options: MapOption[] = [];
+
+    // Waze
+    const canWaze = await Linking.canOpenURL('waze://');
+    if (canWaze) options.push({ name: 'Waze', url: wazeUrl });
+
+    // Google Maps
+    const canGoogleMaps = await Linking.canOpenURL('comgooglemaps://');
+    if (canGoogleMaps) {
+      options.push({
+        name: 'Google Maps',
+        url: `comgooglemaps://?q=${encodedAddress}`,
+      });
+    }
+
+    // Apple Plans (iOS only)
+    if (Platform.OS === 'ios') {
+      options.push({ name: 'Plans Apple', url: `maps:?q=${encodedAddress}` });
+    }
+
+    // Android default maps (geo: scheme)
+    if (Platform.OS === 'android' && !canGoogleMaps) {
+      options.push({ name: 'Maps', url: `geo:0,0?q=${encodedAddress}` });
+    }
+
+    // Fallback: Google Maps web
+    if (options.length === 0) {
+      Linking.openURL(googleMapsUrl);
+      return;
+    }
+
+    // Only one option: open directly
+    if (options.length === 1) {
+      Linking.openURL(options[0].url);
+      return;
+    }
+
+    // Multiple options: show picker
+    Alert.alert(
+      'Ouvrir avec',
+      'Choisissez votre application GPS',
+      [
+        ...options.map((opt) => ({
+          text: opt.name,
+          onPress: () => Linking.openURL(opt.url),
+        })),
+        { text: 'Annuler', style: 'cancel' as const },
+      ],
+    );
   };
 
   if (isLoading) {
@@ -209,7 +256,7 @@ export default function CommandePage() {
               size={200}
               label={order.qr_code_token ?? undefined}
             />
-            {!isMock && (order.status === 'paid' || order.status === 'ready_for_pickup') && (
+            {order.status === 'ready_for_pickup' && (
               <>
                 <View style={styles.swipeContainer}>
                   <SwipeConfirmButton onConfirm={handleConfirmPickup} />
@@ -220,7 +267,7 @@ export default function CommandePage() {
                   activeOpacity={0.7}
                 >
                   <Ionicons name="help-circle-outline" size={18} color="#EF4444" />
-                  <Text style={styles.helpBtnText}>Un problème ? Signaler</Text>
+                  <Text style={styles.helpBtnText}>Commerce fermé ? Signaler</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -379,7 +426,7 @@ export default function CommandePage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
   loadingContainer: {
     flex: 1,

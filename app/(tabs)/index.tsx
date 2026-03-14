@@ -646,7 +646,7 @@ export default function AccueilPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FC',
+    backgroundColor: '#ffffff',
   },
   scrollContent: {
     paddingBottom: 24,

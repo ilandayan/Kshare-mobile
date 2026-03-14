@@ -6,23 +6,27 @@ import {
   TouchableOpacity,
   Switch,
   StyleSheet,
-  Alert,
+  Modal,
   ActivityIndicator,
   Platform,
+  Share,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { UserProfile } from '@/lib/types';
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 async function fetchProfile(userId: string): Promise<UserProfile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, first_name, last_name, phone, role, avatar_url, created_at')
+    .select('id, email, full_name, phone, role, avatar_url, created_at')
     .eq('id', userId)
     .single();
   if (error) return null;
@@ -31,9 +35,10 @@ async function fetchProfile(userId: string): Promise<UserProfile | null> {
 
 function getInitials(profile: UserProfile | null, email: string | undefined): string {
   if (!profile) return (email?.[0] ?? '?').toUpperCase();
-  const f = profile.first_name?.[0] ?? '';
-  const l = profile.last_name?.[0] ?? '';
-  return (f + l).toUpperCase() || (profile.email?.[0] ?? '?').toUpperCase();
+  const name = profile.full_name ?? '';
+  const parts = name.trim().split(/\s+/);
+  const initials = parts.map((p) => p[0]).join('').toUpperCase();
+  return initials || (profile.email?.[0] ?? '?').toUpperCase();
 }
 
 // ── Row components ─────────────────────────────────────────────────────────────
@@ -120,6 +125,7 @@ export default function ProfilPage() {
   const [signingOut, setSigningOut] = useState(false);
   const [notifEmail, setNotifEmail] = useState(false);
   const [notifPush, setNotifPush] = useState(true);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile', user?.id],
@@ -127,28 +133,18 @@ export default function ProfilPage() {
     enabled: !!user?.id,
   });
 
-  const fullName = profile
-    ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
-    : '';
+  const fullName = profile?.full_name ?? '';
   const email = profile?.email ?? user?.email ?? '';
   const initials = getInitials(profile ?? null, user?.email);
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Déconnexion',
-      'Voulez-vous vraiment vous déconnecter ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Se déconnecter',
-          style: 'destructive',
-          onPress: async () => {
-            setSigningOut(true);
-            await signOut();
-          },
-        },
-      ],
-    );
+    setShowLogoutModal(true);
+  };
+
+  const confirmSignOut = async () => {
+    setShowLogoutModal(false);
+    setSigningOut(true);
+    await signOut();
   };
 
   return (
@@ -157,10 +153,15 @@ export default function ProfilPage() {
       <ScrollView showsVerticalScrollIndicator={false}>
 
         {/* ── Avatar + name ── */}
-        <View style={styles.profileHeader}>
+        <LinearGradient
+          colors={['#1e2a78', '#2d4de0', '#4f6df5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.profileHeader}
+        >
           <View style={styles.avatarCircle}>
             {isLoading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color="#3744C8" />
             ) : (
               <Text style={styles.avatarText}>{initials}</Text>
             )}
@@ -169,7 +170,7 @@ export default function ProfilPage() {
             <Text style={styles.profileName}>{fullName || email}</Text>
             <Text style={styles.profileEmail}>{email}</Text>
           </View>
-        </View>
+        </LinearGradient>
 
         {/* ── Section COMPTE ── */}
         <Text style={styles.sectionLabel}>COMPTE</Text>
@@ -178,25 +179,25 @@ export default function ProfilPage() {
             icon="person-outline"
             label="Nom et prénom"
             value={fullName || '—'}
-            onPress={() => {}}
+            onPress={() => router.push('/profil/edit')}
           />
           <ProfileRow
             icon="mail-outline"
             label="Email"
             value={email}
-            onPress={() => {}}
+            onPress={() => router.push('/profil/edit')}
           />
           <ProfileRow
             icon="call-outline"
             label="Téléphone"
             value={profile?.phone ?? '—'}
-            onPress={() => {}}
+            onPress={() => router.push('/profil/edit')}
           />
           <ProfileRow
             icon="card-outline"
             label="Paiement"
             value="•••• 4242"
-            onPress={() => {}}
+            onPress={() => router.push('/profil/paiement')}
             last
           />
         </View>
@@ -225,22 +226,26 @@ export default function ProfilPage() {
           <ProfileRow
             icon="people-outline"
             label="Parrainer un ami"
-            onPress={() => {}}
+            onPress={() =>
+              Share.share({
+                message: 'Découvre Kshare, la marketplace de paniers casher anti-gaspi ! Télécharge l\'app : https://k-share.fr',
+              })
+            }
           />
           <ProfileRow
             icon="storefront-outline"
             label="Devenir partenaire"
-            onPress={() => {}}
+            onPress={() => Linking.openURL('https://k-share.fr')}
           />
           <ProfileRow
             icon="share-social-outline"
             label="Recommander un commerce"
-            onPress={() => {}}
+            onPress={() => Linking.openURL('mailto:contact@k-share.fr?subject=Recommandation%20commerce')}
           />
           <ProfileRow
             icon="help-circle-outline"
             label="Aide et support"
-            onPress={() => {}}
+            onPress={() => router.push('/profil/support')}
             last
           />
         </View>
@@ -266,6 +271,42 @@ export default function ProfilPage() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* ── Logout confirmation modal ── */}
+      <Modal
+        visible={showLogoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <Ionicons name="log-out-outline" size={28} color="#EF4444" />
+            </View>
+            <Text style={styles.modalTitle}>Déconnexion</Text>
+            <Text style={styles.modalMessage}>
+              Voulez-vous vraiment vous déconnecter ?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowLogoutModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalCancelText}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
+                onPress={confirmSignOut}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalConfirmText}>Se déconnecter</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -273,7 +314,7 @@ export default function ProfilPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F5F9',
+    backgroundColor: '#ffffff',
   },
 
   // Profile header
@@ -281,18 +322,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderRadius: 20,
+    overflow: 'hidden',
     marginBottom: 24,
   },
   avatarCircle: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#3744C8',
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -300,7 +340,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#fff',
+    color: '#3744C8',
   },
   profileInfo: {
     gap: 3,
@@ -308,11 +348,11 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: '#fff',
   },
   profileEmail: {
     fontSize: 13,
-    color: '#6B7280',
+    color: 'rgba(255,255,255,0.8)',
   },
 
   // Section label
@@ -405,5 +445,82 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#EF4444',
+  },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 340,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  modalIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  modalConfirmBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+  },
+  modalConfirmText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

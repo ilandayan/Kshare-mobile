@@ -209,7 +209,7 @@ export default function EditProfilePage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F5F9',
+    backgroundColor: '#ffffff',
   },
   loader: {
     flex: 1,

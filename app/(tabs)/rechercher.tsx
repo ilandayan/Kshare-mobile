@@ -113,8 +113,8 @@ export default function RechercherPage() {
                 style={[
                   styles.filterChip,
                   isSelected && {
-                    backgroundColor: typeInfo?.color ?? '#3b82f6',
-                    borderColor: typeInfo?.color ?? '#3b82f6',
+                    backgroundColor: typeInfo?.color ?? '#3744C8',
+                    borderColor: typeInfo?.color ?? '#3744C8',
                   },
                 ]}
                 onPress={() => setSelectedType(type)}
@@ -140,7 +140,7 @@ export default function RechercherPage() {
       {/* Resultats */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
+          <ActivityIndicator size="large" color="#3744C8" />
           <Text style={styles.loadingText}>Chargement...</Text>
         </View>
       ) : (
@@ -155,7 +155,7 @@ export default function RechercherPage() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#3b82f6"
+              tintColor="#3744C8"
             />
           }
           renderItem={({ item }) => (
@@ -189,7 +189,7 @@ export default function RechercherPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
   header: {
     backgroundColor: '#ffffff',
