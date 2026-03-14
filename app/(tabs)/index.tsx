@@ -383,7 +383,7 @@ export default function AccueilPage() {
         {/* Logo + share */}
         <View style={styles.headerBrandRow}>
           <Image
-            source={require('@/assets/logo-kshare.jpg')}
+            source={require('@/assets/logo-k.png')}
             style={styles.headerLogo}
             resizeMode="cover"
           />
