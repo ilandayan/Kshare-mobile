@@ -124,6 +124,7 @@ export default function PaiementPage() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        style={{ backgroundColor: '#F4F5F9' }}
         contentContainerStyle={styles.scrollContent}
       >
         {/* Section: Cartes enregistrées */}

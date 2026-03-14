@@ -131,6 +131,7 @@ export default function EditProfilePage() {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
+          style={{ backgroundColor: '#F4F5F9' }}
           contentContainerStyle={styles.scrollContent}
         >
           {/* Prénom */}

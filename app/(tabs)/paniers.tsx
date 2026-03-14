@@ -318,6 +318,7 @@ export default function PaniersPage() {
         <FlatList
           data={displayed}
           keyExtractor={(item) => item.id}
+          style={{ backgroundColor: '#F8F9FC' }}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}

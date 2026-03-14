@@ -240,6 +240,7 @@ export default function FavorisPage() {
         <FlatList
           data={sorted}
           keyExtractor={(item) => item.id}
+          style={{ backgroundColor: '#F8F9FC' }}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={

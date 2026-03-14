@@ -601,6 +601,7 @@ export default function AccueilPage() {
       {/* ── Scrollable content ── */}
       <ScrollView
         showsVerticalScrollIndicator={false}
+        style={{ backgroundColor: '#F8F9FC' }}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3744C8" />
