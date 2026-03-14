@@ -424,6 +424,15 @@ export default function AccueilPage() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
+            {location && (
+              <TouchableOpacity
+                style={styles.modalBackBtn}
+                onPress={() => setShowPostalModal(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="arrow-back" size={22} color="#374151" />
+              </TouchableOpacity>
+            )}
             <Ionicons name="location-outline" size={40} color="#3744C8" style={{ alignSelf: 'center', marginBottom: 8 }} />
             <Text style={styles.modalTitle}>Votre localisation</Text>
             <Text style={styles.modalSubtitle}>
@@ -448,14 +457,6 @@ export default function AccueilPage() {
             >
               <Text style={styles.modalBtnText}>Valider</Text>
             </TouchableOpacity>
-            {location && (
-              <TouchableOpacity
-                style={styles.modalCloseBtn}
-                onPress={() => setShowPostalModal(false)}
-              >
-                <Text style={styles.modalCloseBtnText}>Annuler</Text>
-              </TouchableOpacity>
-            )}
           </View>
         </View>
       </Modal>
@@ -740,6 +741,13 @@ const styles = StyleSheet.create({
       },
       android: { elevation: 10 },
     }),
+  },
+  modalBackBtn: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    zIndex: 1,
+    padding: 4,
   },
   modalTitle: {
     fontSize: 20,
