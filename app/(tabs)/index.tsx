@@ -13,6 +13,7 @@ import {
   Image,
   Modal,
   TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -408,6 +409,7 @@ export default function AccueilPage() {
             activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel="Notifications"
+            onPress={() => Alert.alert('Notifications', 'Les notifications arrivent bientôt ! 🔔')}
           >
             <Ionicons name="notifications-outline" size={22} color="#374151" />
             <View style={styles.notifDot} accessible={false} />
