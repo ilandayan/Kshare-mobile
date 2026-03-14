@@ -1,24 +1,30 @@
 import { create } from 'zustand';
 import type { Session, User } from '@supabase/supabase-js';
+import { router } from 'expo-router';
 import { supabase } from './supabase';
+
+import type { UserRole } from './types';
 
 interface AuthState {
   user: User | null;
   session: Session | null;
+  userRole: UserRole | null;
   isLoading: boolean;
   setSession: (session: Session | null) => void;
   setUser: (user: User | null) => void;
+  setUserRole: (role: UserRole | null) => void;
   setLoading: (loading: boolean) => void;
   signOut: () => Promise<void>;
 }
 
 interface FavoritesState {
+  /** Commerce IDs the user has favorited */
   favorites: string[];
-  addFavorite: (basketId: string) => void;
-  removeFavorite: (basketId: string) => void;
-  toggleFavorite: (basketId: string) => Promise<void>;
-  setFavorites: (basketIds: string[]) => void;
-  isFavorite: (basketId: string) => boolean;
+  addFavorite: (commerceId: string) => void;
+  removeFavorite: (commerceId: string) => void;
+  toggleFavorite: (commerceId: string) => Promise<void>;
+  setFavorites: (commerceIds: string[]) => void;
+  isFavorite: (commerceId: string) => boolean;
 }
 
 interface AppStore extends AuthState, FavoritesState {}
@@ -27,6 +33,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // Auth state
   user: null,
   session: null,
+  userRole: null,
   isLoading: true,
 
   setSession: (session: Session | null) => {
@@ -37,61 +44,77 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ user });
   },
 
+  setUserRole: (role: UserRole | null) => {
+    set({ userRole: role });
+  },
+
   setLoading: (loading: boolean) => {
     set({ isLoading: loading });
   },
 
   signOut: async () => {
     await supabase.auth.signOut();
-    set({ user: null, session: null, favorites: [] });
+    set({ user: null, session: null, userRole: null, favorites: [] });
+    router.replace('/(auth)/connexion');
   },
 
-  // Favorites state
+  // Favorites state (commerce IDs)
   favorites: [],
 
-  addFavorite: (basketId: string) => {
+  addFavorite: (commerceId: string) => {
     const current = get().favorites;
-    if (!current.includes(basketId)) {
-      set({ favorites: [...current, basketId] });
+    if (!current.includes(commerceId)) {
+      set({ favorites: [...current, commerceId] });
     }
   },
 
-  removeFavorite: (basketId: string) => {
-    set({ favorites: get().favorites.filter((id) => id !== basketId) });
+  removeFavorite: (commerceId: string) => {
+    set({ favorites: get().favorites.filter((id) => id !== commerceId) });
   },
 
-  toggleFavorite: async (basketId: string) => {
+  toggleFavorite: async (commerceId: string) => {
     const { user, favorites } = get();
-    const isCurrentlyFav = favorites.includes(basketId);
+    const isCurrentlyFav = favorites.includes(commerceId);
 
     // Optimistic update — instant UI feedback
     set({
       favorites: isCurrentlyFav
-        ? favorites.filter((id) => id !== basketId)
-        : [...favorites, basketId],
+        ? favorites.filter((id) => id !== commerceId)
+        : [...favorites, commerceId],
     });
 
-    // Sync to Supabase in background (fire-and-forget)
+    // Sync to Supabase — rollback on failure
     if (user) {
-      if (isCurrentlyFav) {
-        await supabase
-          .from('favorites')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('basket_id', basketId);
-      } else {
-        await supabase
-          .from('favorites')
-          .insert({ user_id: user.id, basket_id: basketId });
+      try {
+        if (isCurrentlyFav) {
+          const { error } = await supabase
+            .from('favorites')
+            .delete()
+            .eq('client_id', user.id)
+            .eq('commerce_id', commerceId);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('favorites')
+            .insert({ client_id: user.id, commerce_id: commerceId });
+          if (error) throw error;
+        }
+      } catch {
+        // Rollback optimistic update on failure
+        set({
+          favorites: isCurrentlyFav
+            ? [...get().favorites, commerceId]
+            : get().favorites.filter((id) => id !== commerceId),
+        });
       }
     }
   },
 
-  setFavorites: (basketIds: string[]) => {
-    set({ favorites: basketIds });
+  setFavorites: (commerceIds: string[]) => {
+    set({ favorites: commerceIds });
   },
 
-  isFavorite: (basketId: string) => {
-    return get().favorites.includes(basketId);
+  isFavorite: (commerceId: string) => {
+    return get().favorites.includes(commerceId);
   },
 }));
