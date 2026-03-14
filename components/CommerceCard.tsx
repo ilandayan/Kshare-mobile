@@ -11,13 +11,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { BASKET_TYPE_LABELS, type Basket } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
+import { getCommerceImage } from '@/lib/commerceImages';
 
 const BADGE_CONFIG: Record<string, { bg: string; text: string }> = {
-  bassari: { bg: '#FF6B82', text: '#fff' },
-  halavi:  { bg: '#5BB8E8', text: '#fff' },
-  parve:   { bg: '#4BC8A0', text: '#fff' },
-  shabbat: { bg: '#FF9A3E', text: '#fff' },
-  mix:     { bg: '#9B7FE8', text: '#fff' },
+  bassari: { bg: '#D94452', text: '#fff' },
+  halavi:  { bg: '#2E8BBE', text: '#fff' },
+  parve:   { bg: '#2A9D6E', text: '#fff' },
+  shabbat: { bg: '#D97B1A', text: '#fff' },
+  mix:     { bg: '#7B5CC0', text: '#fff' },
 };
 
 function formatTime(value: string): string {
@@ -56,6 +57,8 @@ export function CommerceCard({
   const savingsPct = Math.round((1 - basket.sold_price / basket.original_price) * 100);
   const isLowStock = remaining > 0 && remaining <= 2;
 
+  const coverImage = getCommerceImage(commerce?.photos, commerce?.commerce_type);
+
   const handlePress = () => router.push(`/panier/${basket.id}`);
   const handleFavorite = () => toggleFavorite(commerceId);
 
@@ -63,9 +66,9 @@ export function CommerceCard({
     <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.92}>
       {/* ── Image ── */}
       <View style={styles.imageWrap}>
-        {commerce?.logo_url ? (
+        {coverImage ? (
           <Image
-            source={{ uri: commerce.logo_url }}
+            source={coverImage}
             style={styles.image}
             resizeMode="cover"
           />
