@@ -464,11 +464,7 @@ export default function AccueilPage() {
       {/* ── Catégories + Time filter (fixed, not scrollable) ── */}
       <View style={styles.fixedFilterSection}>
         {/* Category chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.catChipRow}
-        >
+        <View style={styles.catChipRow}>
           {CATEGORIES.map((cat) => {
             const active = selectedCategories.includes(cat.type as BasketType);
             const hasSelection = selectedCategories.length > 0;
@@ -504,7 +500,7 @@ export default function AccueilPage() {
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
+        </View>
 
         {/* ── Time filter row ── */}
         <View style={styles.timeRow}>
@@ -835,8 +831,10 @@ const styles = StyleSheet.create({
 
   // Category chips
   catChipRow: {
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
     gap: 8,
+    paddingHorizontal: 12,
     paddingBottom: 4,
   },
   catChip: {
