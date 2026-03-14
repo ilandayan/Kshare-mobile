@@ -385,7 +385,7 @@ export default function AccueilPage() {
           <Image
             source={require('@/assets/logo-k.png')}
             style={styles.headerLogo}
-            resizeMode="cover"
+            resizeMode="contain"
           />
           <Text style={styles.headerBrandShare}>share</Text>
         </View>
