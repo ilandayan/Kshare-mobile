@@ -17,7 +17,6 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import { usePayment } from '@/lib/usePayment';
-import { BasketTypeBadge } from '@/components/BasketTypeBadge';
 import { BASKET_TYPE_LABELS, type Basket } from '@/lib/types';
 import { getCommerceImage } from '@/lib/commerceImages';
 
@@ -92,6 +91,7 @@ export default function BasketDetailPage() {
   const { user, toggleFavorite, isFavorite } = useAppStore();
   const { pay } = usePayment();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [isDonating, setIsDonating] = useState(false);
   const [quantity, setQuantity] = useState(1);
 
   const { data: basket, isLoading } = useQuery({
@@ -149,6 +149,63 @@ export default function BasketDetailPage() {
     }
   };
 
+  const handleDonate = async () => {
+    if (!basket || !user) {
+      Alert.alert('Erreur', 'Vous devez être connecté pour faire un don.');
+      return;
+    }
+
+    const remaining =
+      basket.quantity_total - basket.quantity_reserved - basket.quantity_sold;
+
+    if (remaining <= 0) {
+      Alert.alert('Rupture de stock', 'Ce panier n\'est plus disponible.');
+      return;
+    }
+
+    Alert.alert(
+      'Offrir ce panier',
+      `Vous allez offrir ${quantity} panier${quantity > 1 ? 's' : ''} pour ${(basket.sold_price * quantity).toFixed(2)} €.\n\nCe don sera mis à disposition d'une association partenaire. Merci pour votre Mitzva !`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Confirmer le don',
+          onPress: async () => {
+            setIsDonating(true);
+            try {
+              const result = await pay({
+                basketId: basket.id,
+                userId: user.id,
+                userEmail: user.email ?? '',
+                amount: Math.round(basket.sold_price * quantity * 100),
+                quantity,
+                isDonation: true,
+              });
+
+              if (result.success) {
+                Alert.alert(
+                  'Merci pour votre don ! 🎁',
+                  'Votre Mitzva sera remise à une association partenaire. Que votre générosité soit bénie !',
+                  [
+                    {
+                      text: 'Voir mes dons',
+                      onPress: () => router.replace('/(tabs)/paniers'),
+                    },
+                  ],
+                );
+              }
+            } catch (err) {
+              const message = err instanceof Error ? err.message : 'Une erreur est survenue.';
+              Alert.alert('Erreur de paiement', message);
+            } finally {
+              setIsDonating(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -181,8 +238,13 @@ export default function BasketDetailPage() {
               <Image source={heroImage} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
             ) : null;
           })()}
-          <View style={[styles.discountBadge, { backgroundColor: typeInfo.color }]}>
-            <Text style={styles.discountText}>-{discount}%</Text>
+          {/* Bandeau diagonal type de panier */}
+          <View style={styles.ribbonWrapper}>
+            <View style={styles.ribbonRotate}>
+              <View style={[styles.ribbon, { backgroundColor: typeInfo.color }]}>
+                <Text style={styles.ribbonText}>{typeInfo.label}</Text>
+              </View>
+            </View>
           </View>
           <TouchableOpacity
             style={styles.favButton}
@@ -226,7 +288,9 @@ export default function BasketDetailPage() {
           {/* Type & description */}
           <View style={styles.detailSection}>
             <View style={styles.badgeLogoRow}>
-              <BasketTypeBadge type={basket.type} size="lg" />
+              <View style={[styles.discountBadgeInline, { backgroundColor: typeInfo.color }]}>
+                <Text style={styles.discountBadgeInlineText}>-{discount}%</Text>
+              </View>
               <View style={styles.commerceLogo}>
                 {basket.commerces?.logo_url ? (
                   <Image
@@ -368,14 +432,15 @@ export default function BasketDetailPage() {
           </View>
         )}
 
+        {/* Bouton Réserver */}
         <TouchableOpacity
           style={[
             styles.reserveButton,
             { backgroundColor: isSoldOut ? '#9ca3af' : typeInfo.color },
-            isCheckingOut && styles.buttonDisabled,
+            (isCheckingOut || isDonating) && styles.buttonDisabled,
           ]}
           onPress={handleReserve}
-          disabled={isSoldOut || isCheckingOut}
+          disabled={isSoldOut || isCheckingOut || isDonating}
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel={isSoldOut ? 'Rupture de stock' : `Réserver ${quantity} panier${quantity > 1 ? 's' : ''}`}
@@ -394,6 +459,32 @@ export default function BasketDetailPage() {
             </>
           )}
         </TouchableOpacity>
+
+        {/* Bouton Offrir (Don / Mitzva) */}
+        {!isSoldOut && (
+          <TouchableOpacity
+            style={[
+              styles.donateButton,
+              (isDonating || isCheckingOut) && styles.buttonDisabled,
+            ]}
+            onPress={handleDonate}
+            disabled={isSoldOut || isDonating || isCheckingOut}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={`Offrir ${quantity} panier${quantity > 1 ? 's' : ''} en don`}
+          >
+            {isDonating ? (
+              <ActivityIndicator color="#9333EA" />
+            ) : (
+              <>
+                <Ionicons name="heart" size={18} color="#9333EA" />
+                <Text style={styles.donateButtonText}>
+                  Offrir ce panier (Mitzva)
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -460,17 +551,47 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#ffffff',
   },
-  discountBadge: {
+  ribbonWrapper: {
     position: 'absolute',
-    top: 16,
-    left: 16,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    top: 0,
+    left: 0,
+    width: 170,
+    height: 170,
+    overflow: 'hidden',
   },
-  discountText: {
+  ribbonRotate: {
+    position: 'absolute',
+    top: 27,
+    left: -59,
+    width: 220,
+    transform: [{ rotate: '-45deg' }],
+  },
+  ribbon: {
+    width: '100%',
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  ribbonText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: 0.8,
+  },
+  discountBadgeInline: {
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+  },
+  discountBadgeInlineText: {
+    color: '#ffffff',
+    fontSize: 18,
     fontWeight: '800',
   },
   favButton: {
@@ -575,12 +696,12 @@ const styles = StyleSheet.create({
   },
   discountPill: {
     borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
   discountPillText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: '#ffffff',
   },
   saveText: {
@@ -657,6 +778,23 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.7,
+  },
+  donateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 8,
+    backgroundColor: '#F3E8FF',
+    borderWidth: 1.5,
+    borderColor: '#E9D5FF',
+  },
+  donateButtonText: {
+    color: '#9333EA',
+    fontSize: 15,
+    fontWeight: '700',
   },
   reserveButtonText: {
     color: '#ffffff',

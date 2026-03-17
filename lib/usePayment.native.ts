@@ -11,6 +11,7 @@ export function usePayment() {
     userEmail: string;
     amount: number;
     quantity?: number;
+    isDonation?: boolean;
   }): Promise<{ success: boolean; orderId?: string }> => {
     // Create payment intent via Supabase Edge Function
     const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
@@ -22,6 +23,7 @@ export function usePayment() {
           amount: options.amount,
           quantity: options.quantity ?? 1,
           user_email: options.userEmail,
+          is_donation: options.isDonation ?? false,
         },
       },
     );
@@ -38,9 +40,20 @@ export function usePayment() {
     const { error: initError } = await initPaymentSheet({
       merchantDisplayName: 'Kshare',
       paymentIntentClientSecret: paymentData.clientSecret,
+      customerEphemeralKeySecret: paymentData.ephemeralKey,
+      customerId: paymentData.customerId,
       defaultBillingDetails: {
         email: options.userEmail,
       },
+      // Google Pay (Apple Pay requires merchant ID from Apple Developer account)
+      googlePay: {
+        merchantCountryCode: 'FR',
+        testEnv: true,
+      },
+      // Required for redirect-based payment methods
+      returnURL: 'kshare://stripe-redirect',
+      // Allow saving cards for future payments
+      allowsDelayedPaymentMethods: false,
       appearance: {
         colors: {
           primary: '#3744C8',
@@ -59,6 +72,17 @@ export function usePayment() {
         Alert.alert('Paiement annulé', presentError.message);
       }
       return { success: false };
+    }
+
+    // Payment succeeded — update order status to 'paid'
+    try {
+      await supabase
+        .from('orders')
+        .update({ status: 'paid' })
+        .eq('id', paymentData.orderId);
+    } catch (updateErr) {
+      // Non-blocking: webhook will also update the status server-side
+      console.warn('[usePayment] Failed to update order status:', updateErr);
     }
 
     return { success: true, orderId: paymentData.orderId };
