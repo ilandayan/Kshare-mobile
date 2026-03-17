@@ -17,6 +17,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import { SwipeConfirmButton } from '@/components/SwipeConfirmButton';
+import { RatingModal } from '@/components/RatingModal';
 import { BasketTypeBadge } from '@/components/BasketTypeBadge';
 import { BASKET_TYPE_LABELS, type Order } from '@/lib/types';
 import { isMockOrderId, getMockOrderById } from '@/lib/mockOrders';
@@ -31,7 +32,8 @@ async function fetchOrder(id: string): Promise<Order | null> {
     .from('orders')
     .select(
       `
-      id, basket_id, user_id, amount_paid, status, is_donation, qr_code_token, created_at,
+      id, basket_id, client_id, commerce_id, total_amount, quantity, unit_price, status, is_donation, qr_code_token,
+      pickup_date, pickup_start, pickup_end, created_at,
       baskets (
         type, pickup_start, pickup_end, description,
         commerces (name, address, city, postal_code)
@@ -56,38 +58,49 @@ const STATUS_INFO: Record<string, { label: string; color: string; icon: React.Co
   cancelled_admin: { label: 'Commande annulée', color: '#ef4444', icon: 'close-circle-outline' },
 };
 
-function formatDateTime(isoString: string) {
-  const date = new Date(isoString);
+function formatPickupDate(dateStr: string): string {
+  if (!dateStr) return '';
+
+  // dateStr is "YYYY-MM-DD" from Supabase date column
+  // Parse manually to avoid timezone issues
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+  const day = parseInt(parts[2], 10);
+
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return dateStr;
+
+  const date = new Date(year, month, day, 12, 0, 0);
+
+  if (isNaN(date.getTime())) return dateStr;
+
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  let dayLabel = '';
   if (date.toDateString() === today.toDateString()) {
-    dayLabel = "Aujourd'hui";
-  } else if (date.toDateString() === tomorrow.toDateString()) {
-    dayLabel = 'Demain';
-  } else {
-    dayLabel = date.toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    });
-    dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+    return "Aujourd'hui";
+  }
+  if (date.toDateString() === tomorrow.toDateString()) {
+    return 'Demain';
   }
 
-  const timeStart = date.toLocaleTimeString('fr-FR', {
-    hour: '2-digit',
-    minute: '2-digit',
+  let label = date.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
   });
-
-  return { dayLabel, timeStart };
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 export default function CommandePage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [pickupConfirmed, setPickupConfirmed] = useState(false);
+  const [showRating, setShowRating] = useState(false);
+  const [ratingDone, setRatingDone] = useState(false);
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', id],
@@ -112,74 +125,41 @@ export default function CommandePage() {
     }
 
     setPickupConfirmed(true);
+    setShowRating(true);
     queryClient.invalidateQueries({ queryKey: ['order', id] });
     queryClient.invalidateQueries({ queryKey: ['orders'] });
   };
 
-  const handleOpenMaps = async () => {
+  const handleOpenMaps = () => {
     if (!order?.baskets?.commerces) return;
 
     const commerce = order.baskets.commerces;
     const address = `${commerce.address}, ${commerce.postal_code ?? ''} ${commerce.city}`;
     const encodedAddress = encodeURIComponent(address);
 
-    // Build available map app options
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
     const wazeUrl = `https://waze.com/ul?q=${encodedAddress}&navigate=yes`;
+    const appleMapsUrl = `maps:?q=${encodedAddress}`;
 
     if (Platform.OS === 'web') {
       Linking.openURL(googleMapsUrl);
       return;
     }
 
-    type MapOption = { name: string; url: string };
-    const options: MapOption[] = [];
-
-    // Waze
-    const canWaze = await Linking.canOpenURL('waze://');
-    if (canWaze) options.push({ name: 'Waze', url: wazeUrl });
-
-    // Google Maps
-    const canGoogleMaps = await Linking.canOpenURL('comgooglemaps://');
-    if (canGoogleMaps) {
-      options.push({
-        name: 'Google Maps',
-        url: `comgooglemaps://?q=${encodedAddress}`,
-      });
-    }
-
-    // Apple Plans (iOS only)
-    if (Platform.OS === 'ios') {
-      options.push({ name: 'Plans Apple', url: `maps:?q=${encodedAddress}` });
-    }
-
-    // Android default maps (geo: scheme)
-    if (Platform.OS === 'android' && !canGoogleMaps) {
-      options.push({ name: 'Maps', url: `geo:0,0?q=${encodedAddress}` });
-    }
-
-    // Fallback: Google Maps web
-    if (options.length === 0) {
+    if (Platform.OS === 'android') {
       Linking.openURL(googleMapsUrl);
       return;
     }
 
-    // Only one option: open directly
-    if (options.length === 1) {
-      Linking.openURL(options[0].url);
-      return;
-    }
-
-    // Multiple options: show picker
+    // iOS: propose Apple Plans, Waze, Google Maps
     Alert.alert(
       'Ouvrir avec',
       'Choisissez votre application GPS',
       [
-        ...options.map((opt) => ({
-          text: opt.name,
-          onPress: () => Linking.openURL(opt.url),
-        })),
-        { text: 'Annuler', style: 'cancel' as const },
+        { text: 'Plans Apple', onPress: () => Linking.openURL(appleMapsUrl) },
+        { text: 'Waze', onPress: () => Linking.openURL(wazeUrl) },
+        { text: 'Google Maps', onPress: () => Linking.openURL(googleMapsUrl) },
+        { text: 'Annuler', style: 'cancel' },
       ],
     );
   };
@@ -203,16 +183,16 @@ export default function CommandePage() {
   const isMock = isMockOrderId(id);
   const typeInfo = order.baskets?.type ? BASKET_TYPE_LABELS[order.baskets.type] : null;
   const statusInfo = STATUS_INFO[order.status];
-  const { dayLabel, timeStart } = order.baskets?.pickup_start
-    ? formatDateTime(order.baskets.pickup_start)
-    : { dayLabel: '', timeStart: '' };
+  // Build pickup date/time from order fields (pickup_date = "2026-03-17", pickup_start/end = "17:00:00")
+  const pickupDateStr = order.pickup_date ?? '';
+  const pickupStartTime = order.pickup_start ?? order.baskets?.pickup_start ?? '';
+  const pickupEndTime = order.pickup_end ?? order.baskets?.pickup_end ?? '';
 
-  const pickupEnd = order.baskets?.pickup_end
-    ? new Date(order.baskets.pickup_end).toLocaleTimeString('fr-FR', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : '';
+  const dayLabel = formatPickupDate(pickupDateStr);
+
+  // Extract HH:MM from time strings like "17:00:00"
+  const timeStart = pickupStartTime ? pickupStartTime.substring(0, 5) : '';
+  const pickupEnd = pickupEndTime ? pickupEndTime.substring(0, 5) : '';
 
   const qrValue = order.qr_code_token ?? order.id;
 
@@ -274,15 +254,35 @@ export default function CommandePage() {
           </View>
         )}
 
-        {/* Confirmation retrait */}
-        {(pickupConfirmed || order.status === 'picked_up') && (
+        {/* Rating modal after swipe confirmation */}
+        {showRating && !ratingDone && order.baskets?.commerces && (
+          <RatingModal
+            orderId={order.id}
+            commerceId={order.commerce_id ?? ''}
+            commerceName={order.baskets.commerces.name ?? 'Commerce'}
+            onSubmit={() => {
+              setShowRating(false);
+              setRatingDone(true);
+            }}
+            onSkip={() => {
+              setShowRating(false);
+            }}
+          />
+        )}
+
+        {/* Confirmation retrait (shown after rating or skip, or when revisiting a picked_up order) */}
+        {((pickupConfirmed && !showRating) || (!pickupConfirmed && order.status === 'picked_up')) && (
           <View style={styles.confirmedSection}>
             <View style={styles.confirmedCircle}>
               <Ionicons name="checkmark" size={48} color="#fff" />
             </View>
-            <Text style={styles.confirmedTitle}>Retrait confirmé !</Text>
+            <Text style={styles.confirmedTitle}>
+              {ratingDone ? 'Merci pour votre avis !' : 'Retrait confirmé !'}
+            </Text>
             <Text style={styles.confirmedSubtitle}>
-              {order.is_donation ? 'Merci pour votre don' : 'Merci pour votre achat anti-gaspi'}
+              {ratingDone
+                ? 'Votre note a bien été enregistrée'
+                : order.is_donation ? 'Merci pour votre don' : 'Merci pour votre achat anti-gaspi'}
             </Text>
             <TouchableOpacity
               style={styles.backToPaniersBtn}
@@ -309,7 +309,7 @@ export default function CommandePage() {
 
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Montant payé</Text>
-              <Text style={styles.detailValue}>{order.amount_paid.toFixed(2)} €</Text>
+              <Text style={styles.detailValue}>{Number(order.total_amount).toFixed(2)} €</Text>
             </View>
 
             <View style={styles.divider} />

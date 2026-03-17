@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Image,
   Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -20,6 +21,7 @@ import { useAppStore } from '@/lib/store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BASKET_TYPE_LABELS, type Order, type BasketType, type OrderStatus } from '@/lib/types';
 import { getCommerceImage } from '@/lib/commerceImages';
+import { RatingModal } from '@/components/RatingModal';
 import { MOCK_ORDERS } from '@/lib/mockOrders';
 
 // ── Badge configs ─────────────────────────────────────────────────────────────
@@ -70,18 +72,43 @@ function formatOrderDate(iso: string): string {
   });
 }
 
-function formatPickupDisplay(iso: string): string {
-  const date = new Date(iso);
+function formatPickupSlot(order: Order): string {
+  // pickup_start/end are time-only strings like "17:00:00"
+  const pickupDate = order.pickup_date ?? '';
+  const startTime = order.pickup_start ?? order.baskets?.pickup_start ?? '';
+  const endTime = order.pickup_end ?? order.baskets?.pickup_end ?? '';
+
+  const start = startTime ? startTime.substring(0, 5) : '';
+  const end = endTime ? endTime.substring(0, 5) : '';
+  const timeSlot = start && end ? `${start} – ${end}` : start || '';
+
+  if (!pickupDate) return timeSlot;
+
+  // Parse "YYYY-MM-DD" manually to avoid timezone issues
+  const parts = pickupDate.split('-');
+  if (parts.length !== 3) return timeSlot;
+
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const date = new Date(year, month, day, 12, 0, 0);
+
+  if (isNaN(date.getTime())) return timeSlot;
+
   const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const isYesterday = date.toDateString() === yesterday.toDateString();
-  const time = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  if (isToday)     return `Aujourd'hui ${time}`;
-  if (isYesterday) return `Hier ${time}`;
-  const dayMon = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-  return `${dayMon} ${time}`;
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+
+  let dayLabel: string;
+  if (date.toDateString() === now.toDateString()) {
+    dayLabel = "Aujourd'hui";
+  } else if (date.toDateString() === tomorrow.toDateString()) {
+    dayLabel = 'Demain';
+  } else {
+    dayLabel = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  }
+
+  return timeSlot ? `${dayLabel} ${timeSlot}` : dayLabel;
 }
 
 // ── Fetch orders ──────────────────────────────────────────────────────────────
@@ -89,7 +116,8 @@ async function fetchOrders(userId: string): Promise<Order[]> {
   const { data, error } = await supabase
     .from('orders')
     .select(
-      `id, basket_id, user_id, amount_paid, status, is_donation, qr_code_token, created_at,
+      `id, basket_id, client_id, commerce_id, total_amount, quantity, unit_price, status, is_donation, qr_code_token,
+       pickup_date, pickup_start, pickup_end, created_at,
        baskets (
          type, pickup_start, pickup_end, original_price, sold_price,
          description, is_donation,
@@ -97,15 +125,24 @@ async function fetchOrders(userId: string): Promise<Order[]> {
        ),
        associations (name)`,
     )
-    .eq('user_id', userId)
+    .eq('client_id', userId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
   return (data ?? []) as unknown as Order[];
 }
 
+// Fetch rated order IDs for current user
+async function fetchRatedOrderIds(userId: string): Promise<Set<string>> {
+  const { data } = await supabase
+    .from('ratings')
+    .select('order_id')
+    .eq('client_id', userId);
+  return new Set((data ?? []).map((r) => r.order_id));
+}
+
 // ── Order card ────────────────────────────────────────────────────────────────
-function OrderCard({ order, tab }: { order: Order; tab: 'en_cours' | 'passees' | 'dons' }) {
+function OrderCard({ order, tab, isRated, onRate }: { order: Order; tab: 'en_cours' | 'passees' | 'dons'; isRated: boolean; onRate?: () => void }) {
   const basket = order.baskets;
   const commerce = basket?.commerces;
   const typeKey = basket?.type ?? 'mix';
@@ -182,11 +219,11 @@ function OrderCard({ order, tab }: { order: Order; tab: 'en_cours' | 'passees' |
             {commerce?.commerce_type ?? ''}
           </Text>
 
-          {basket?.pickup_start && (
+          {(order.pickup_start || basket?.pickup_start) && (
             <View style={styles.timeRow}>
               <Ionicons name="time-outline" size={12} color="#6B7280" />
               <Text style={styles.timeText}>
-                {formatPickupDisplay(basket.pickup_start)}
+                {formatPickupSlot(order)}
               </Text>
             </View>
           )}
@@ -205,7 +242,7 @@ function OrderCard({ order, tab }: { order: Order; tab: 'en_cours' | 'passees' |
               <Text style={styles.origPrice}>{basket.original_price.toFixed(2)}€</Text>
             )}
             <Text style={styles.soldPrice}>
-              {(basket?.sold_price ?? order.amount_paid).toFixed(2)}€
+              {(basket?.sold_price ?? Number(order.total_amount)).toFixed(2)}€
             </Text>
 
             {/* Détails button — En cours only */}
@@ -217,6 +254,26 @@ function OrderCard({ order, tab }: { order: Order; tab: 'en_cours' | 'passees' |
                 <Text style={styles.detailsBtnText}>Détails</Text>
                 <Ionicons name="chevron-forward" size={13} color="#fff" />
               </TouchableOpacity>
+            )}
+
+            {/* Rating button — Past orders not yet rated */}
+            {tab === 'passees' && order.status === 'picked_up' && !isRated && onRate && (
+              <TouchableOpacity
+                style={styles.rateBtn}
+                onPress={onRate}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="star" size={13} color="#F59E0B" />
+                <Text style={styles.rateBtnText}>Noter</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Rating done badge */}
+            {tab === 'passees' && isRated && (
+              <View style={styles.ratedBadge}>
+                <Ionicons name="star" size={11} color="#F59E0B" />
+                <Text style={styles.ratedBadgeText}>Noté</Text>
+              </View>
             )}
           </View>
         </View>
@@ -232,10 +289,17 @@ export default function PaniersPage() {
   const { user } = useAppStore();
   const [activeTab, setActiveTab] = useState<TabKey>('en_cours');
   const [refreshing, setRefreshing] = useState(false);
+  const [ratingOrder, setRatingOrder] = useState<Order | null>(null);
 
   const { data: rawOrders = [], isLoading, refetch } = useQuery({
     queryKey: ['orders', user?.id],
     queryFn: () => (user?.id ? fetchOrders(user.id) : Promise.resolve([])),
+    enabled: !!user?.id,
+  });
+
+  const { data: ratedOrderIds = new Set<string>(), refetch: refetchRatings } = useQuery({
+    queryKey: ['ratedOrderIds', user?.id],
+    queryFn: () => (user?.id ? fetchRatedOrderIds(user.id) : Promise.resolve(new Set<string>())),
     enabled: !!user?.id,
   });
 
@@ -245,9 +309,9 @@ export default function PaniersPage() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refetch();
+    await Promise.all([refetch(), refetchRatings()]);
     setRefreshing(false);
-  }, [refetch]);
+  }, [refetch, refetchRatings]);
 
   const enCours  = orders.filter((o) => ['created', 'paid', 'ready_for_pickup'].includes(o.status) && !o.is_donation);
   const passees  = orders.filter((o) => ['picked_up', 'no_show', 'cancelled_admin', 'refunded'].includes(o.status) && !o.is_donation);
@@ -325,7 +389,18 @@ export default function PaniersPage() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3744C8" />
           }
-          renderItem={({ item }) => <OrderCard order={item} tab={activeTab} />}
+          renderItem={({ item }) => (
+            <OrderCard
+              order={item}
+              tab={activeTab}
+              isRated={ratedOrderIds.has(item.id)}
+              onRate={
+                activeTab === 'passees' && item.status === 'picked_up' && !ratedOrderIds.has(item.id)
+                  ? () => setRatingOrder(item)
+                  : undefined
+              }
+            />
+          )}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>
@@ -349,6 +424,31 @@ export default function PaniersPage() {
           }
         />
       )}
+
+      {/* Rating modal */}
+      <Modal
+        visible={!!ratingOrder}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRatingOrder(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {ratingOrder && (
+              <RatingModal
+                orderId={ratingOrder.id}
+                commerceId={ratingOrder.commerce_id ?? ''}
+                commerceName={ratingOrder.baskets?.commerces?.name ?? 'Commerce'}
+                onSubmit={() => {
+                  setRatingOrder(null);
+                  refetchRatings();
+                }}
+                onSkip={() => setRatingOrder(null)}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -588,6 +688,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#92400E',
     fontWeight: '600',
+  },
+
+  // Rating
+  rateBtn: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 4,
+  },
+  rateBtnText: {
+    color: '#D97706',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  ratedBadge: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF9C3',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 3,
+  },
+  ratedBadgeText: {
+    color: '#A16207',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalContent: {
+    borderRadius: 20,
+    overflow: 'hidden',
   },
 
   // Empty
