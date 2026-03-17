@@ -763,8 +763,8 @@ const styles = StyleSheet.create({
   bottomCTA: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: Platform.OS === 'ios' ? 14 : 20,
+    paddingTop: 6,
+    paddingBottom: Platform.OS === 'ios' ? 4 : 8,
     borderTopWidth: 1,
     borderTopColor: '#f3f4f6',
   },
