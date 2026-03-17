@@ -165,7 +165,7 @@ export default function BasketDetailPage() {
 
     Alert.alert(
       'Offrir ce panier',
-      `Vous allez offrir ${quantity} panier${quantity > 1 ? 's' : ''} pour ${(basket.sold_price * quantity).toFixed(2)} €.\n\nCe don sera mis à disposition d'une association partenaire. Merci pour votre Mitzva !`,
+      `Vous allez offrir ${quantity} panier${quantity > 1 ? 's' : ''} pour ${(basket.sold_price * quantity).toFixed(2)} €.\n\nCe don sera mis à disposition d'une association partenaire. Merci pour votre Tsedaka !`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -185,7 +185,7 @@ export default function BasketDetailPage() {
               if (result.success) {
                 Alert.alert(
                   'Merci pour votre don ! 🎁',
-                  'Votre Mitzva sera remise à une association partenaire. Que votre générosité soit bénie !',
+                  'Votre Tsedaka sera remise à une association partenaire. Que votre générosité soit bénie !',
                   [
                     {
                       text: 'Voir mes dons',
@@ -460,7 +460,7 @@ export default function BasketDetailPage() {
           )}
         </TouchableOpacity>
 
-        {/* Bouton Offrir (Don / Mitzva) */}
+        {/* Bouton Offrir (Don / Tsedaka) */}
         {!isSoldOut && (
           <TouchableOpacity
             style={[
@@ -479,7 +479,7 @@ export default function BasketDetailPage() {
               <>
                 <Ionicons name="heart" size={18} color="#9333EA" />
                 <Text style={styles.donateButtonText}>
-                  Offrir ce panier (Mitzva)
+                  Offrir ce panier (Tsedaka)
                 </Text>
               </>
             )}
@@ -763,8 +763,8 @@ const styles = StyleSheet.create({
   bottomCTA: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 8 : 16,
+    paddingTop: 18,
+    paddingBottom: Platform.OS === 'ios' ? 14 : 20,
     borderTopWidth: 1,
     borderTopColor: '#f3f4f6',
   },
