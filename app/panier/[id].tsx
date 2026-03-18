@@ -849,9 +849,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
     borderRadius: 14,
-    paddingVertical: 11,
+    paddingVertical: 13,
     marginTop: 6,
     backgroundColor: '#F3E8FF',
     borderWidth: 1.5,
@@ -859,7 +859,7 @@ const styles = StyleSheet.create({
   },
   donateButtonText: {
     color: '#9333EA',
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
   },
   reserveButtonText: {
