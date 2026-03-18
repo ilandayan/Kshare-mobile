@@ -737,6 +737,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginTop: -4,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   priceSection: {
     backgroundColor: '#ffffff',
