@@ -682,8 +682,8 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingBottom: 20,
-    paddingTop: 18,
-    gap: 12,
+    paddingTop: 14,
+    gap: 6,
   },
   commerceSection: {
     backgroundColor: '#ffffff',
