@@ -85,7 +85,7 @@ export function usePayment() {
         .eq('id', paymentData.orderId);
     } catch (updateErr) {
       // Non-blocking: webhook will also update the status server-side
-      console.warn('[usePayment] Failed to update order status:', updateErr);
+      // Non-critical: webhook handles status update server-side
     }
 
     return { success: true, orderId: paymentData.orderId };
