@@ -54,6 +54,8 @@ export function usePayment() {
       returnURL: 'kshare://stripe-redirect',
       // Allow saving cards for future payments
       allowsDelayedPaymentMethods: false,
+      // French locale
+      primaryButtonLabel: 'Payer',
       appearance: {
         colors: {
           primary: '#3744C8',
