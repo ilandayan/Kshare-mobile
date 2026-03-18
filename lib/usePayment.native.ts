@@ -56,6 +56,7 @@ export function usePayment() {
       allowsDelayedPaymentMethods: false,
       // French locale
       primaryButtonLabel: 'Payer',
+      locale: 'fr-FR',
       appearance: {
         colors: {
           primary: '#3744C8',
