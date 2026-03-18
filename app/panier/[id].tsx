@@ -163,9 +163,12 @@ export default function BasketDetailPage() {
       return;
     }
 
+    const donationFee = Math.round((basketTotal * SERVICE_FEE_PERCENT + 0.25) * 100) / 100;
+    const donationTotal = Math.round((basketTotal + donationFee) * 100) / 100;
+
     Alert.alert(
       'Offrir ce panier',
-      `Vous allez offrir ${quantity} panier${quantity > 1 ? 's' : ''} pour ${(basket.sold_price * quantity).toFixed(2)} €.\n\nCe don sera mis à disposition d'une association partenaire. Merci pour votre Tsedaka !`,
+      `Vous allez offrir ${quantity} panier${quantity > 1 ? 's' : ''} pour ${donationTotal.toFixed(2)} €.\n\n💜 0% de commission — seuls les frais de gestion de ${donationFee.toFixed(2)} € s'appliquent.\n\nCe don sera mis à disposition d'une association partenaire. Merci pour votre Tsedaka !`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -226,6 +229,14 @@ export default function BasketDetailPage() {
   const remaining = basket.quantity_total - basket.quantity_reserved - basket.quantity_sold;
   const discount = getDiscount(basket.original_price, basket.sold_price);
   const isSoldOut = remaining <= 0 || basket.status !== 'published';
+
+  // ── Fee calculations ──
+  const SERVICE_FEE_PERCENT = 0.015;
+  const SERVICE_FEE_FIXED = 0.79;
+
+  const basketTotal = basket.sold_price * quantity;
+  const serviceFee = Math.round((basketTotal * SERVICE_FEE_PERCENT + SERVICE_FEE_FIXED) * 100) / 100;
+  const totalWithFees = Math.round((basketTotal + serviceFee) * 100) / 100;
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -432,6 +443,25 @@ export default function BasketDetailPage() {
           </View>
         )}
 
+        {/* Breakdown prix */}
+        {!isSoldOut && (
+          <View style={styles.priceBreakdown}>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Montant du panier</Text>
+              <Text style={styles.breakdownValue}>{basketTotal.toFixed(2)} €</Text>
+            </View>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Frais de gestion</Text>
+              <Text style={styles.breakdownValue}>{serviceFee.toFixed(2)} €</Text>
+            </View>
+            <View style={styles.breakdownDivider} />
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownTotalLabel}>Total</Text>
+              <Text style={styles.breakdownTotalValue}>{totalWithFees.toFixed(2)} €</Text>
+            </View>
+          </View>
+        )}
+
         {/* Bouton Réserver */}
         <TouchableOpacity
           style={[
@@ -454,7 +484,7 @@ export default function BasketDetailPage() {
               <Text style={styles.reserveButtonText}>
                 {isSoldOut
                   ? 'Rupture de stock'
-                  : `Réserver${quantity > 1 ? ` (×${quantity})` : ''} — ${(basket.sold_price * quantity).toFixed(2)} €`}
+                  : `Réserver${quantity > 1 ? ` (×${quantity})` : ''} — ${totalWithFees.toFixed(2)} €`}
               </Text>
             </>
           )}
@@ -850,5 +880,41 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     color: '#111827',
+  },
+  priceBreakdown: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    gap: 6,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  breakdownValue: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  breakdownDivider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+    marginVertical: 4,
+  },
+  breakdownTotalLabel: {
+    fontSize: 15,
+    color: '#111827',
+    fontWeight: '700',
+  },
+  breakdownTotalValue: {
+    fontSize: 15,
+    color: '#111827',
+    fontWeight: '800',
   },
 });
