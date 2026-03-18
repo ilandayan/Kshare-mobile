@@ -176,7 +176,7 @@ export default function BasketDetailPage() {
 
     Alert.alert(
       'Offrir ce panier',
-      `Vous allez offrir ${quantity} panier${quantity > 1 ? 's' : ''} pour ${donationTotal.toFixed(2)} €.\n\n💜 0% de commission — seuls les frais de gestion de ${donationFee.toFixed(2)} € s'appliquent.\n\nCe don sera mis à disposition d'une association partenaire. Merci pour votre Tsedaka !`,
+      `Vous allez offrir ${quantity} panier${quantity > 1 ? 's' : ''} pour ${donationTotal.toFixed(2)} €.\n\n💜 0% de commission — seuls les frais de gestion de ${donationFee.toFixed(2)} € s'appliquent.\n\nCe don sera mis à disposition d'une association partenaire. Merci pour votre mitzvah !`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -196,7 +196,7 @@ export default function BasketDetailPage() {
               if (result.success) {
                 Alert.alert(
                   'Merci pour votre don ! 🎁',
-                  'Votre Tsedaka sera remise à une association partenaire. Que votre générosité soit bénie !',
+                  'Votre Mitzvah sera remise à une association partenaire. Que votre générosité soit bénie !',
                   [
                     {
                       text: 'Voir mes dons',
