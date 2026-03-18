@@ -93,6 +93,7 @@ export default function BasketDetailPage() {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [isDonating, setIsDonating] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   const { data: basket, isLoading } = useQuery({
     queryKey: ['basket', id],
@@ -103,7 +104,7 @@ export default function BasketDetailPage() {
   const commerceId = basket?.commerces?.id ?? basket?.commerce_id ?? '';
   const favorited = commerceId ? isFavorite(commerceId) : false;
 
-  const handleReserve = async () => {
+  const handleReserve = () => {
     if (!basket || !user) {
       Alert.alert('Erreur', 'Vous devez être connecté pour réserver.');
       return;
@@ -122,6 +123,12 @@ export default function BasketDetailPage() {
       setQuantity(remaining);
       return;
     }
+
+    setShowBreakdown(true);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!basket || !user) return;
 
     setIsCheckingOut(true);
 
@@ -146,6 +153,7 @@ export default function BasketDetailPage() {
       Alert.alert('Erreur de paiement', message);
     } finally {
       setIsCheckingOut(false);
+      setShowBreakdown(false);
     }
   };
 
@@ -443,55 +451,83 @@ export default function BasketDetailPage() {
           </View>
         )}
 
-        {/* Bouton Réserver */}
-        <TouchableOpacity
-          style={[
-            styles.reserveButton,
-            { backgroundColor: isSoldOut ? '#9ca3af' : typeInfo.color },
-            (isCheckingOut || isDonating) && styles.buttonDisabled,
-          ]}
-          onPress={handleReserve}
-          disabled={isSoldOut || isCheckingOut || isDonating}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel={isSoldOut ? 'Rupture de stock' : `Réserver ${quantity} panier${quantity > 1 ? 's' : ''}`}
-          accessibilityState={{ disabled: isSoldOut || isCheckingOut }}
-        >
-          {isCheckingOut ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <>
-              <Ionicons name="bag-outline" size={20} color="#ffffff" />
-              <Text style={styles.reserveButtonText}>
-                {isSoldOut
-                  ? 'Rupture de stock'
-                  : `Réserver${quantity > 1 ? ` (×${quantity})` : ''} — ${totalWithFees.toFixed(2)} €`}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {/* Étape 1 : Bouton Réserver */}
+        {!showBreakdown && (
+          <TouchableOpacity
+            style={[
+              styles.reserveButton,
+              { backgroundColor: isSoldOut ? '#9ca3af' : typeInfo.color },
+              (isCheckingOut || isDonating) && styles.buttonDisabled,
+            ]}
+            onPress={handleReserve}
+            disabled={isSoldOut || isCheckingOut || isDonating}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={isSoldOut ? 'Rupture de stock' : `Réserver ${quantity} panier${quantity > 1 ? 's' : ''}`}
+            accessibilityState={{ disabled: isSoldOut || isCheckingOut }}
+          >
+            <Ionicons name="bag-outline" size={20} color="#ffffff" />
+            <Text style={styles.reserveButtonText}>
+              {isSoldOut
+                ? 'Rupture de stock'
+                : `Réserver${quantity > 1 ? ` (×${quantity})` : ''} — ${basketTotal.toFixed(2)} €`}
+            </Text>
+          </TouchableOpacity>
+        )}
 
-        {/* Breakdown prix */}
-        {!isSoldOut && (
-          <View style={styles.priceBreakdown}>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Montant du panier</Text>
-              <Text style={styles.breakdownValue}>{basketTotal.toFixed(2)} €</Text>
+        {/* Étape 2 : Breakdown prix + Confirmer */}
+        {showBreakdown && !isSoldOut && (
+          <>
+            <View style={styles.priceBreakdown}>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Montant du panier</Text>
+                <Text style={styles.breakdownValue}>{basketTotal.toFixed(2)} €</Text>
+              </View>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Frais de gestion</Text>
+                <Text style={styles.breakdownValue}>{serviceFee.toFixed(2)} €</Text>
+              </View>
+              <View style={styles.breakdownDivider} />
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownTotalLabel}>Total</Text>
+                <Text style={styles.breakdownTotalValue}>{totalWithFees.toFixed(2)} €</Text>
+              </View>
             </View>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Frais de gestion</Text>
-              <Text style={styles.breakdownValue}>{serviceFee.toFixed(2)} €</Text>
-            </View>
-            <View style={styles.breakdownDivider} />
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownTotalLabel}>Total</Text>
-              <Text style={styles.breakdownTotalValue}>{totalWithFees.toFixed(2)} €</Text>
-            </View>
-          </View>
+
+            <TouchableOpacity
+              style={[
+                styles.reserveButton,
+                { backgroundColor: typeInfo.color },
+                isCheckingOut && styles.buttonDisabled,
+              ]}
+              onPress={handleConfirmPayment}
+              disabled={isCheckingOut}
+              activeOpacity={0.85}
+            >
+              {isCheckingOut ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <>
+                  <Ionicons name="card-outline" size={20} color="#ffffff" />
+                  <Text style={styles.reserveButtonText}>
+                    Confirmer le paiement — {totalWithFees.toFixed(2)} €
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelBreakdownButton}
+              onPress={() => setShowBreakdown(false)}
+              disabled={isCheckingOut}
+            >
+              <Text style={styles.cancelBreakdownText}>Annuler</Text>
+            </TouchableOpacity>
+          </>
         )}
 
         {/* Bouton Offrir (Don / Tsedaka) */}
-        {!isSoldOut && (
+        {!isSoldOut && !showBreakdown && (
           <TouchableOpacity
             style={[
               styles.donateButton,
@@ -916,5 +952,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#111827',
     fontWeight: '800',
+  },
+  cancelBreakdownButton: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  cancelBreakdownText: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '600',
   },
 });
