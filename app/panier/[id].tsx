@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
-    marginTop: -4,
+    marginTop: 6,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
