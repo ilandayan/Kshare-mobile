@@ -417,6 +417,18 @@ export default function CommandePage() {
           </TouchableOpacity>
         )}
 
+        {/* Signaler un problème */}
+        {['paid', 'ready_for_pickup', 'picked_up'].includes(order.status) && (
+          <TouchableOpacity
+            style={styles.reportButton}
+            onPress={() => router.push({ pathname: '/profil/support', params: { openForm: '1', orderId: order.id } })}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="warning-outline" size={18} color="#EF4444" />
+            <Text style={styles.reportButtonText}>Signaler un problème</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
@@ -571,6 +583,22 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderWidth: 1.5,
     borderColor: '#bfdbfe',
+  },
+  reportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 14,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderColor: '#FECACA',
+  },
+  reportButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#EF4444',
   },
   mapsButtonText: {
     fontSize: 15,

@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
@@ -51,15 +51,16 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function SupportPage() {
   const { user } = useAppStore();
-  const [showForm, setShowForm] = useState(false);
-  const [category, setCategory] = useState('autre');
+  const params = useLocalSearchParams<{ openForm?: string; orderId?: string }>();
+  const [showForm, setShowForm] = useState(params.openForm === '1');
+  const [category, setCategory] = useState(params.orderId ? 'commande' : 'autre');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [ticketRef, setTicketRef] = useState('');
   const [orders, setOrders] = useState<UserOrder[]>([]);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(params.orderId ?? null);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
   // Fetch user orders when category is "commande"
