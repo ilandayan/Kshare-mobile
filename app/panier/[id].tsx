@@ -744,6 +744,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 16,
+    paddingTop: 8,
+    marginTop: -4,
     gap: 8,
   },
   priceRow: {
