@@ -28,7 +28,7 @@ export function usePayment() {
       },
     );
 
-    if (paymentError || !paymentData?.clientSecret) {
+    if (paymentError || !paymentData?.clientSecret || !paymentData?.ephemeralKey || !paymentData?.customerId || !paymentData?.orderId) {
       // Try to extract the detailed error message from the Edge Function response
       const detailedMessage =
         paymentData?.error ??

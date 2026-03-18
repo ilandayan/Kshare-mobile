@@ -137,7 +137,7 @@ export default function BasketDetailPage() {
         basketId: basket.id,
         userId: user.id,
         userEmail: user.email ?? '',
-        amount: Math.round(basket.sold_price * quantity * 100), // centimes
+        amount: Math.round(totalWithFees * 100), // centimes — inclut frais de gestion
         quantity,
       });
 
@@ -188,7 +188,7 @@ export default function BasketDetailPage() {
                 basketId: basket.id,
                 userId: user.id,
                 userEmail: user.email ?? '',
-                amount: Math.round(basket.sold_price * quantity * 100),
+                amount: Math.round(donationTotal * 100), // inclut frais de gestion don
                 quantity,
                 isDonation: true,
               });
