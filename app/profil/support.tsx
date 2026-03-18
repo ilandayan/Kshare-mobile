@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -29,6 +30,25 @@ const CATEGORIES = [
   { value: 'autre', label: 'Autre', icon: 'help-circle-outline' as IoniconName },
 ];
 
+interface UserOrder {
+  id: string;
+  label: string;
+  date: string;
+  commerceName: string;
+  amount: number;
+  status: string;
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  created: 'En attente',
+  paid: 'Confirmée',
+  ready_for_pickup: 'Prête',
+  picked_up: 'Récupérée',
+  no_show: 'Non récupérée',
+  refunded: 'Remboursée',
+  cancelled_admin: 'Annulée',
+};
+
 export default function SupportPage() {
   const { user } = useAppStore();
   const [showForm, setShowForm] = useState(false);
@@ -38,6 +58,42 @@ export default function SupportPage() {
   const [isSending, setIsSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [ticketRef, setTicketRef] = useState('');
+  const [orders, setOrders] = useState<UserOrder[]>([]);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
+  // Fetch user orders when category is "commande"
+  useEffect(() => {
+    if (category !== 'commande' || !user?.id || orders.length > 0) return;
+
+    setLoadingOrders(true);
+    supabase
+      .from('orders')
+      .select('id, total_amount, status, created_at, baskets(commerces(name))')
+      .eq('client_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+      .then(({ data }) => {
+        const mapped: UserOrder[] = (data ?? []).map((o: any) => {
+          const shortId = o.id.replace(/-/g, '').slice(-4).toUpperCase();
+          const year = new Date(o.created_at).getFullYear();
+          const dateStr = new Date(o.created_at).toLocaleDateString('fr-FR', {
+            day: 'numeric',
+            month: 'short',
+          });
+          return {
+            id: o.id,
+            label: `CMD-${year}-${shortId}`,
+            date: dateStr,
+            commerceName: o.baskets?.commerces?.name ?? 'Commerce',
+            amount: Number(o.total_amount ?? 0),
+            status: o.status,
+          };
+        });
+        setOrders(mapped);
+      })
+      .finally(() => setLoadingOrders(false));
+  }, [category, user?.id]);
 
   const handleSubmit = async () => {
     if (!subject.trim() || !message.trim()) {
@@ -56,7 +112,9 @@ export default function SupportPage() {
           lastName: user?.user_metadata?.last_name ?? '',
           email: user?.email ?? '',
           subject: subject.trim(),
-          message: message.trim(),
+          message: selectedOrderId
+            ? `[Commande: ${orders.find((o) => o.id === selectedOrderId)?.label ?? selectedOrderId}]\n\n${message.trim()}`
+            : message.trim(),
           category,
         }),
       });
@@ -83,6 +141,7 @@ export default function SupportPage() {
     setMessage('');
     setCategory('autre');
     setTicketRef('');
+    setSelectedOrderId(null);
   };
 
   const items = [
@@ -181,6 +240,63 @@ export default function SupportPage() {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {/* Order selector (when category = commande) */}
+              {category === 'commande' && (
+                <>
+                  <Text style={styles.formLabel}>Commande concernée</Text>
+                  {loadingOrders ? (
+                    <ActivityIndicator size="small" color="#3744C8" style={{ marginVertical: 8 }} />
+                  ) : orders.length === 0 ? (
+                    <Text style={styles.noOrdersText}>Aucune commande trouvée</Text>
+                  ) : (
+                    <View style={styles.orderList}>
+                      {orders.map((o) => (
+                        <TouchableOpacity
+                          key={o.id}
+                          style={[
+                            styles.orderChip,
+                            selectedOrderId === o.id && styles.orderChipActive,
+                          ]}
+                          onPress={() => setSelectedOrderId(selectedOrderId === o.id ? null : o.id)}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <View style={styles.orderChipHeader}>
+                              <Text
+                                style={[
+                                  styles.orderChipRef,
+                                  selectedOrderId === o.id && styles.orderChipRefActive,
+                                ]}
+                              >
+                                {o.label}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.orderChipStatus,
+                                  selectedOrderId === o.id && { color: '#3744C8' },
+                                ]}
+                              >
+                                {STATUS_LABELS[o.status] ?? o.status}
+                              </Text>
+                            </View>
+                            <Text
+                              style={[
+                                styles.orderChipDetail,
+                                selectedOrderId === o.id && { color: '#4B5ECC' },
+                              ]}
+                            >
+                              {o.commerceName} · {o.date} · {o.amount.toFixed(2)}€
+                            </Text>
+                          </View>
+                          {selectedOrderId === o.id && (
+                            <Ionicons name="checkmark-circle" size={20} color="#3744C8" />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </>
+              )}
 
               {/* Subject */}
               <Text style={styles.formLabel}>Sujet</Text>
@@ -367,6 +483,54 @@ const styles = StyleSheet.create({
   emailFallbackText: {
     fontSize: 13,
     color: '#9CA3AF',
+  },
+  noOrdersText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+    paddingVertical: 4,
+  },
+  orderList: {
+    gap: 8,
+  },
+  orderChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  orderChipActive: {
+    backgroundColor: '#EEF0FF',
+    borderColor: '#3744C8',
+  },
+  orderChipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  orderChipRef: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  orderChipRefActive: {
+    color: '#3744C8',
+  },
+  orderChipStatus: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  orderChipDetail: {
+    fontSize: 12,
+    color: '#6B7280',
   },
   version: {
     textAlign: 'center',
