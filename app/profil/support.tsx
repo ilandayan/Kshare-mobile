@@ -1,44 +1,106 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   StyleSheet,
   Linking,
   Platform,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAppStore } from '@/lib/store';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-interface SupportItem {
-  icon: IoniconName;
-  label: string;
-  subtitle: string;
-  onPress: () => void;
-}
+const API_BASE = process.env.EXPO_PUBLIC_WEBAPP_URL ?? 'https://k-share.fr';
+
+const CATEGORIES = [
+  { value: 'commande', label: 'Commande', icon: 'bag-outline' as IoniconName },
+  { value: 'paiement', label: 'Paiement', icon: 'card-outline' as IoniconName },
+  { value: 'compte', label: 'Mon compte', icon: 'person-outline' as IoniconName },
+  { value: 'autre', label: 'Autre', icon: 'help-circle-outline' as IoniconName },
+];
 
 export default function SupportPage() {
-  const items: SupportItem[] = [
+  const { user } = useAppStore();
+  const [showForm, setShowForm] = useState(false);
+  const [category, setCategory] = useState('autre');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [ticketRef, setTicketRef] = useState('');
+
+  const handleSubmit = async () => {
+    if (!subject.trim() || !message.trim()) {
+      Alert.alert('Champs requis', 'Veuillez remplir le sujet et le message.');
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          space: 'client',
+          firstName: user?.user_metadata?.first_name ?? user?.email?.split('@')[0] ?? 'Client',
+          lastName: user?.user_metadata?.last_name ?? '',
+          email: user?.email ?? '',
+          subject: subject.trim(),
+          message: message.trim(),
+          category,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setTicketRef(data.ticketRef ?? '');
+        setSent(true);
+      } else {
+        Alert.alert('Erreur', data.error ?? 'Une erreur est survenue.');
+      }
+    } catch {
+      Alert.alert('Erreur', 'Impossible de contacter le support. Vérifiez votre connexion.');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const resetForm = () => {
+    setShowForm(false);
+    setSent(false);
+    setSubject('');
+    setMessage('');
+    setCategory('autre');
+    setTicketRef('');
+  };
+
+  const items = [
     {
-      icon: 'mail-outline',
-      label: 'Nous contacter',
-      subtitle: 'contact@k-share.fr',
-      onPress: () => Linking.openURL('mailto:contact@k-share.fr'),
+      icon: 'create-outline' as IoniconName,
+      label: 'Envoyer un message',
+      subtitle: 'Réponse rapide par notre équipe + IA',
+      onPress: () => setShowForm(true),
     },
     {
-      icon: 'chatbubble-ellipses-outline',
+      icon: 'chatbubble-ellipses-outline' as IoniconName,
       label: 'FAQ',
       subtitle: 'Questions fréquentes',
       onPress: () => Linking.openURL('https://k-share.fr/faq'),
     },
     {
-      icon: 'document-text-outline',
-      label: 'Conditions d\'utilisation',
+      icon: 'document-text-outline' as IoniconName,
+      label: "Conditions d'utilisation",
       subtitle: 'CGU et politique de confidentialité',
       onPress: () => Linking.openURL('https://k-share.fr/cgu'),
     },
@@ -50,43 +112,169 @@ export default function SupportPage() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => showForm ? resetForm() : router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color="#3744C8" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Aide et support</Text>
+        <Text style={styles.headerTitle}>
+          {showForm ? (sent ? 'Message envoyé' : 'Nous contacter') : 'Aide et support'}
+        </Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        style={{ backgroundColor: '#F4F5F9' }}
-        contentContainerStyle={styles.scrollContent}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.card}>
-          {items.map((item, i) => (
-            <React.Fragment key={item.label}>
-              <TouchableOpacity
-                style={styles.row}
-                onPress={item.onPress}
-                activeOpacity={0.7}
-              >
-                <View style={styles.rowIconWrap}>
-                  <Ionicons name={item.icon} size={18} color="#6B7280" />
-                </View>
-                <View style={styles.rowContent}>
-                  <Text style={styles.rowLabel}>{item.label}</Text>
-                  <Text style={styles.rowSubtitle}>{item.subtitle}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#D1D5DB" />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          style={{ backgroundColor: '#F4F5F9' }}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Success state */}
+          {sent && (
+            <View style={styles.successCard}>
+              <View style={styles.successCircle}>
+                <Ionicons name="checkmark" size={36} color="#fff" />
+              </View>
+              <Text style={styles.successTitle}>Message envoyé !</Text>
+              <Text style={styles.successSubtitle}>
+                Référence : {ticketRef}
+              </Text>
+              <Text style={styles.successText}>
+                Vous recevrez un accusé de réception par email. Notre équipe (assistée par IA) vous répondra dans les plus brefs délais.
+              </Text>
+              <TouchableOpacity style={styles.successBtn} onPress={resetForm}>
+                <Text style={styles.successBtnText}>Retour</Text>
               </TouchableOpacity>
-              {i < items.length - 1 && <View style={styles.divider} />}
-            </React.Fragment>
-          ))}
-        </View>
+            </View>
+          )}
 
-        {/* App version */}
-        <Text style={styles.version}>Kshare v1.0.0</Text>
-      </ScrollView>
+          {/* Contact form */}
+          {showForm && !sent && (
+            <View style={styles.formCard}>
+              {/* Category picker */}
+              <Text style={styles.formLabel}>Catégorie</Text>
+              <View style={styles.categoryRow}>
+                {CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat.value}
+                    style={[
+                      styles.categoryChip,
+                      category === cat.value && styles.categoryChipActive,
+                    ]}
+                    onPress={() => setCategory(cat.value)}
+                  >
+                    <Ionicons
+                      name={cat.icon}
+                      size={14}
+                      color={category === cat.value ? '#3744C8' : '#6B7280'}
+                    />
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        category === cat.value && styles.categoryChipTextActive,
+                      ]}
+                    >
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Subject */}
+              <Text style={styles.formLabel}>Sujet</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: Problème avec ma commande"
+                placeholderTextColor="#9CA3AF"
+                value={subject}
+                onChangeText={setSubject}
+                maxLength={100}
+              />
+
+              {/* Message */}
+              <Text style={styles.formLabel}>Message</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Décrivez votre demande en détail..."
+                placeholderTextColor="#9CA3AF"
+                value={message}
+                onChangeText={setMessage}
+                multiline
+                numberOfLines={5}
+                textAlignVertical="top"
+                maxLength={2000}
+              />
+
+              {/* Email info */}
+              <View style={styles.emailInfo}>
+                <Ionicons name="mail-outline" size={14} color="#9CA3AF" />
+                <Text style={styles.emailInfoText}>
+                  Réponse envoyée à : {user?.email ?? '—'}
+                </Text>
+              </View>
+
+              {/* Submit */}
+              <TouchableOpacity
+                style={[styles.submitBtn, isSending && styles.submitBtnDisabled]}
+                onPress={handleSubmit}
+                disabled={isSending}
+                activeOpacity={0.85}
+              >
+                {isSending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="send" size={18} color="#fff" />
+                    <Text style={styles.submitBtnText}>Envoyer</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Menu items (when form is hidden) */}
+          {!showForm && !sent && (
+            <>
+              <View style={styles.card}>
+                {items.map((item, i) => (
+                  <React.Fragment key={item.label}>
+                    <TouchableOpacity
+                      style={styles.row}
+                      onPress={item.onPress}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.rowIconWrap}>
+                        <Ionicons name={item.icon} size={18} color="#6B7280" />
+                      </View>
+                      <View style={styles.rowContent}>
+                        <Text style={styles.rowLabel}>{item.label}</Text>
+                        <Text style={styles.rowSubtitle}>{item.subtitle}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="#D1D5DB" />
+                    </TouchableOpacity>
+                    {i < items.length - 1 && <View style={styles.divider} />}
+                  </React.Fragment>
+                ))}
+              </View>
+
+              {/* Direct email fallback */}
+              <TouchableOpacity
+                style={styles.emailFallback}
+                onPress={() => Linking.openURL('mailto:contact@k-share.fr')}
+              >
+                <Ionicons name="mail-outline" size={14} color="#9CA3AF" />
+                <Text style={styles.emailFallbackText}>
+                  Ou écrivez-nous à contact@k-share.fr
+                </Text>
+              </TouchableOpacity>
+
+              <Text style={styles.version}>Kshare v1.0.0</Text>
+            </>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -169,10 +357,168 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     marginLeft: 64,
   },
+  emailFallback: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  emailFallbackText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
   version: {
     textAlign: 'center',
     fontSize: 12,
     color: '#9CA3AF',
     marginTop: 8,
+  },
+  // ── Form ──
+  formCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    gap: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: { elevation: 3 },
+    }),
+  },
+  formLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  categoryChipActive: {
+    backgroundColor: '#EEF0FF',
+    borderColor: '#3744C8',
+  },
+  categoryChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  categoryChipTextActive: {
+    color: '#3744C8',
+  },
+  input: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#111827',
+  },
+  textArea: {
+    minHeight: 120,
+    paddingTop: 12,
+  },
+  emailInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  emailInfoText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  submitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#3744C8',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  submitBtnDisabled: {
+    opacity: 0.7,
+  },
+  submitBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  // ── Success ──
+  successCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    gap: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: { elevation: 4 },
+    }),
+  },
+  successCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#22C55E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  successSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3744C8',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  successText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  successBtn: {
+    backgroundColor: '#3744C8',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    marginTop: 8,
+  },
+  successBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
   },
 });
