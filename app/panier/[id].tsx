@@ -443,25 +443,6 @@ export default function BasketDetailPage() {
           </View>
         )}
 
-        {/* Breakdown prix */}
-        {!isSoldOut && (
-          <View style={styles.priceBreakdown}>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Montant du panier</Text>
-              <Text style={styles.breakdownValue}>{basketTotal.toFixed(2)} €</Text>
-            </View>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Frais de gestion</Text>
-              <Text style={styles.breakdownValue}>{serviceFee.toFixed(2)} €</Text>
-            </View>
-            <View style={styles.breakdownDivider} />
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownTotalLabel}>Total</Text>
-              <Text style={styles.breakdownTotalValue}>{totalWithFees.toFixed(2)} €</Text>
-            </View>
-          </View>
-        )}
-
         {/* Bouton Réserver */}
         <TouchableOpacity
           style={[
@@ -489,6 +470,25 @@ export default function BasketDetailPage() {
             </>
           )}
         </TouchableOpacity>
+
+        {/* Breakdown prix */}
+        {!isSoldOut && (
+          <View style={styles.priceBreakdown}>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Montant du panier</Text>
+              <Text style={styles.breakdownValue}>{basketTotal.toFixed(2)} €</Text>
+            </View>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Frais de gestion</Text>
+              <Text style={styles.breakdownValue}>{serviceFee.toFixed(2)} €</Text>
+            </View>
+            <View style={styles.breakdownDivider} />
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownTotalLabel}>Total</Text>
+              <Text style={styles.breakdownTotalValue}>{totalWithFees.toFixed(2)} €</Text>
+            </View>
+          </View>
+        )}
 
         {/* Bouton Offrir (Don / Tsedaka) */}
         {!isSoldOut && (
