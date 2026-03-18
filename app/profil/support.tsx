@@ -89,7 +89,7 @@ export default function SupportPage() {
     {
       icon: 'create-outline' as IoniconName,
       label: 'Envoyer un message',
-      subtitle: 'Réponse rapide par notre équipe + IA',
+      subtitle: 'Réponse rapide par notre équipe',
       onPress: () => setShowForm(true),
     },
     {
