@@ -15,6 +15,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.kshare.app",
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": []
+      },
       "buildNumber": "4",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,

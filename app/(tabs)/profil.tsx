@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Modal,
   ActivityIndicator,
+  Alert,
   Platform,
   Share,
   Linking,
@@ -126,6 +127,8 @@ export default function ProfilPage() {
   const [notifPush, setNotifPush] = useState(true);
   const [savingNotifPush, setSavingNotifPush] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile', user?.id],
@@ -169,6 +172,43 @@ export default function ProfilPage() {
     setShowLogoutModal(false);
     setSigningOut(true);
     await signOut();
+  };
+
+  const handleDeleteAccount = async () => {
+    setShowDeleteModal(false);
+    setDeleting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        Alert.alert('Erreur', 'Vous devez être connecté pour supprimer votre compte.');
+        setDeleting(false);
+        return;
+      }
+
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? 'Erreur serveur');
+      }
+
+      // Sign out locally after deletion
+      await signOut();
+      Alert.alert('Compte supprimé', 'Votre compte et vos données ont été supprimés.');
+    } catch (err) {
+      Alert.alert(
+        'Erreur',
+        'La suppression a échoué. Veuillez réessayer ou contacter le support.',
+      );
+      setDeleting(false);
+    }
   };
 
   return (
@@ -264,11 +304,21 @@ export default function ProfilPage() {
             icon="help-circle-outline"
             label="Aide et support"
             onPress={() => router.push('/profil/support')}
+          />
+          <ProfileRow
+            icon="document-text-outline"
+            label="Conditions d'utilisation"
+            onPress={() => Linking.openURL('https://k-share.fr/cgu')}
+          />
+          <ProfileRow
+            icon="shield-checkmark-outline"
+            label="Politique de confidentialité"
+            onPress={() => Linking.openURL('https://k-share.fr/confidentialite')}
             last
           />
         </View>
 
-        {/* ── Logout ── */}
+        {/* ── Logout + Delete ── */}
         <View style={styles.logoutSection}>
           <TouchableOpacity
             style={styles.logoutBtn}
@@ -282,6 +332,24 @@ export default function ProfilPage() {
               <>
                 <Ionicons name="log-out-outline" size={18} color="#EF4444" />
                 <Text style={styles.logoutText}>Se déconnecter</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.logoutSection}>
+          <TouchableOpacity
+            style={styles.deleteBtn}
+            onPress={() => setShowDeleteModal(true)}
+            disabled={deleting}
+            activeOpacity={0.8}
+          >
+            {deleting ? (
+              <ActivityIndicator color="#9CA3AF" size="small" />
+            ) : (
+              <>
+                <Ionicons name="trash-outline" size={16} color="#9CA3AF" />
+                <Text style={styles.deleteText}>Supprimer mon compte</Text>
               </>
             )}
           </TouchableOpacity>
@@ -320,6 +388,42 @@ export default function ProfilPage() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalConfirmText}>Se déconnecter</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Delete account confirmation modal ── */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={[styles.modalIconWrap, { backgroundColor: '#FEE2E2' }]}>
+              <Ionicons name="warning-outline" size={28} color="#EF4444" />
+            </View>
+            <Text style={styles.modalTitle}>Supprimer mon compte</Text>
+            <Text style={styles.modalMessage}>
+              Cette action est irréversible. Toutes vos données, commandes et favoris seront définitivement supprimés.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowDeleteModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalCancelText}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
+                onPress={handleDeleteAccount}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalConfirmText}>Supprimer</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -463,6 +567,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#EF4444',
+  },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+  },
+  deleteText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#9CA3AF',
+    textDecorationLine: 'underline',
   },
 
   // Modal
