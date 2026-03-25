@@ -8,15 +8,19 @@ import { supabase } from './supabase';
 import { useAppStore } from './store';
 
 // Configure how notifications are displayed when app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch {
+  // Notification handler setup failed — notifications will still work but won't show in foreground
+}
 
 async function registerForPushNotifications(): Promise<string | null> {
   // Push notifications only work on physical devices
@@ -108,7 +112,10 @@ export function usePushNotifications() {
     responseListener.current = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const data = response.notification.request.content.data;
-        if (data?.orderId) {
+        if (data?.type === 'new_basket') {
+          // New basket notification → go to search/browse
+          router.push('/(tabs)/rechercher');
+        } else if (data?.orderId) {
           const userRole = useAppStore.getState().userRole;
           if (userRole === 'association') {
             // Associations go to their reservations tab

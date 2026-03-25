@@ -14,38 +14,26 @@ interface TabConfig {
 
 const tabs: TabConfig[] = [
   {
-    name: 'index',
-    title: 'Accueil',
-    icon: 'home-outline',
-    activeIcon: 'home',
+    name: 'dons',
+    title: 'Dons',
+    icon: 'gift-outline',
+    activeIcon: 'gift',
   },
   {
-    name: 'carte',
-    title: 'Rechercher',
-    icon: 'search-outline',
-    activeIcon: 'search',
+    name: 'reservations',
+    title: 'Réservations',
+    icon: 'clipboard-outline',
+    activeIcon: 'clipboard',
   },
   {
-    name: 'favoris',
-    title: 'Favoris',
-    icon: 'heart-outline',
-    activeIcon: 'heart',
-  },
-  {
-    name: 'paniers',
-    title: 'Paniers',
-    icon: 'bag-outline',
-    activeIcon: 'bag',
-  },
-  {
-    name: 'profil',
+    name: 'asso-profil',
     title: 'Profil',
     icon: 'person-outline',
     activeIcon: 'person',
   },
 ];
 
-export default function TabLayout() {
+export default function AssoTabLayout() {
   return (
     <Tabs
       screenOptions={{
@@ -54,7 +42,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: 'rgba(255,255,255,0.55)',
         tabBarBackground: () => (
           <LinearGradient
-            colors={['#1e2a78', '#2d4de0', '#4f6df5']}
+            colors={['#1e6b4f', '#2a9d6e', '#3cc88a']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -87,7 +75,6 @@ export default function TabLayout() {
             tabBarAccessibilityLabel: `Onglet ${tab.title}`,
             tabBarIcon: ({ focused, color }) => (
               <View style={styles.iconWrapper} accessible={false}>
-                {/* Active pill highlight behind icon */}
                 {focused && <View style={styles.activePill} />}
                 <View style={styles.iconInner}>
                   <Ionicons
@@ -101,8 +88,6 @@ export default function TabLayout() {
           }}
         />
       ))}
-      {/* Hide rechercher from tab bar */}
-      <Tabs.Screen name="rechercher" options={{ href: null }} />
     </Tabs>
   );
 }

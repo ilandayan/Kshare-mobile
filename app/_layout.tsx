@@ -9,11 +9,29 @@ import {
   SafeAreaFrameContext,
 } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as Sentry from '@sentry/react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import { StripeWrapper } from '@/components/StripeWrapper';
 import { DeviceFrame } from '@/components/DeviceFrame';
 import { usePushNotifications } from '@/lib/usePushNotifications';
+import { getMixpanel } from '@/lib/mixpanel';
+
+// Initialize Sentry (wrapped in try-catch to prevent crash on launch)
+try {
+  const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+  if (sentryDsn) {
+    Sentry.init({
+      dsn: sentryDsn,
+      enabled: !__DEV__,
+      tracesSampleRate: 0.2,
+      sendDefaultPii: false,
+      debug: false,
+    });
+  }
+} catch {
+  // Sentry init failed — app continues without crash reporting
+}
 
 // On web inside DeviceFrame, force iPhone 16 Pro safe area insets.
 // We provide these via context directly because SafeAreaProvider's
@@ -36,6 +54,11 @@ function RootLayoutInner() {
 
   // Register push notifications (physical devices only)
   usePushNotifications();
+
+  // Initialize Mixpanel (non-blocking)
+  useEffect(() => {
+    getMixpanel();
+  }, []);
 
   const { setUserRole } = useAppStore();
 
@@ -160,7 +183,7 @@ function RootLayoutInner() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <StripeWrapper>
@@ -169,3 +192,5 @@ export default function RootLayout() {
     </QueryClientProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);

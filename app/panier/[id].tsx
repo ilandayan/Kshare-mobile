@@ -19,6 +19,7 @@ import { useAppStore } from '@/lib/store';
 import { usePayment } from '@/lib/usePayment';
 import { BASKET_TYPE_LABELS, type Basket } from '@/lib/types';
 import { getCommerceImage } from '@/lib/commerceImages';
+import { trackEvent, MixpanelEvents } from '@/lib/mixpanel';
 
 const COMMERCE_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
   Boucherie:   'food-steak',
@@ -101,6 +102,19 @@ export default function BasketDetailPage() {
     enabled: !!id,
   });
 
+  // Track basket view
+  React.useEffect(() => {
+    if (basket) {
+      trackEvent(MixpanelEvents.VIEW_BASKET, {
+        basket_id: basket.id,
+        basket_type: basket.type,
+        commerce_name: basket.commerces?.name ?? '',
+        price: basket.sold_price,
+        is_donation: basket.is_donation ?? false,
+      });
+    }
+  }, [basket?.id]);
+
   const commerceId = basket?.commerces?.id ?? basket?.commerce_id ?? '';
   const favorited = commerceId ? isFavorite(commerceId) : false;
 
@@ -124,6 +138,13 @@ export default function BasketDetailPage() {
       return;
     }
 
+    trackEvent(MixpanelEvents.RESERVE_BASKET, {
+      basket_id: basket.id,
+      basket_type: basket.type,
+      quantity,
+      price: basket.sold_price * quantity,
+    });
+
     setShowBreakdown(true);
   };
 
@@ -142,6 +163,13 @@ export default function BasketDetailPage() {
       });
 
       if (result.success) {
+        trackEvent(MixpanelEvents.PAYMENT_SUCCESS, {
+          basket_id: basket.id,
+          basket_type: basket.type,
+          quantity,
+          total_cents: Math.round(totalWithFees * 100),
+        });
+
         if (result.orderId) {
           router.replace(`/commande/${result.orderId}`);
         } else {
@@ -149,6 +177,10 @@ export default function BasketDetailPage() {
         }
       }
     } catch (err) {
+      trackEvent(MixpanelEvents.PAYMENT_FAILED, {
+        basket_id: basket.id,
+        error: err instanceof Error ? err.message : 'unknown',
+      });
       const message = err instanceof Error ? err.message : 'Une erreur est survenue.';
       Alert.alert('Erreur de paiement', message);
     } finally {

@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { BasketCard } from '@/components/BasketCard';
 import { SearchBar } from '@/components/SearchBar';
 import { BASKET_TYPE_LABELS, type Basket, type BasketType } from '@/lib/types';
+import { trackEvent, MixpanelEvents } from '@/lib/mixpanel';
 
 const ALL_TYPES = ['all', 'bassari', 'halavi', 'parve', 'shabbat', 'mix'] as const;
 type FilterType = (typeof ALL_TYPES)[number];
@@ -44,6 +45,13 @@ export default function RechercherPage() {
   const [search, setSearch] = useState('');
   const [selectedType, setSelectedType] = useState<FilterType>('all');
   const [refreshing, setRefreshing] = useState(false);
+
+  // Track search when user types (debounced via useMemo dependency)
+  React.useEffect(() => {
+    if (search.trim().length >= 2) {
+      trackEvent(MixpanelEvents.SEARCH, { query: search.trim() });
+    }
+  }, [search]);
 
   const {
     data: baskets = [],

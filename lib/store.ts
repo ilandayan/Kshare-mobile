@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { Session, User } from '@supabase/supabase-js';
 import { router } from 'expo-router';
 import { supabase } from './supabase';
+import { trackEvent, resetMixpanel, MixpanelEvents } from './mixpanel';
 
 import type { UserRole } from './types';
 
@@ -53,6 +54,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   signOut: async () => {
+    trackEvent(MixpanelEvents.LOGOUT);
+    resetMixpanel();
     await supabase.auth.signOut();
     set({ user: null, session: null, userRole: null, favorites: [] });
     router.replace('/(auth)/connexion');
@@ -81,6 +84,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
       favorites: isCurrentlyFav
         ? favorites.filter((id) => id !== commerceId)
         : [...favorites, commerceId],
+    });
+
+    trackEvent(MixpanelEvents.TOGGLE_FAVORITE, {
+      commerce_id: commerceId,
+      action: isCurrentlyFav ? 'remove' : 'add',
     });
 
     // Sync to Supabase — rollback on failure

@@ -77,7 +77,7 @@ export function RatingModal({ orderId, commerceId, commerceName, onSubmit, onSki
 
       <Text style={styles.title}>Notez votre expérience</Text>
       <Text style={styles.subtitle}>
-        Comment s'est passé votre retrait chez{'\n'}
+        Comment était votre panier chez{'\n'}
         <Text style={styles.commerceNameText}>{commerceName}</Text> ?
       </Text>
 

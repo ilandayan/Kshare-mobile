@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
+import { trackEvent, identifyUser, MixpanelEvents } from '@/lib/mixpanel';
 
 async function requestLocationPermission() {
   if (Platform.OS === 'web') return;
@@ -98,15 +99,40 @@ export default function InscriptionPage() {
       }
 
       if (data.user) {
+        const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+
         const { error: profileError } = await supabase.from('profiles').insert({
           id: data.user.id,
           email: email.trim().toLowerCase(),
-          full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+          full_name: fullName,
           role: 'client',
         });
 
         if (profileError) {
           // Profile might already exist via trigger - not critical
+        }
+
+        // Track sign up + identify user
+        identifyUser(data.user.id, {
+          name: fullName,
+          email: email.trim().toLowerCase(),
+          role: 'client',
+        });
+        trackEvent(MixpanelEvents.SIGN_UP);
+
+        // Send branded welcome email with confirmation link
+        const apiBase = process.env.EXPO_PUBLIC_WEBAPP_URL ?? 'https://k-share.fr';
+        try {
+          await fetch(`${apiBase}/api/auth/send-confirmation`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: email.trim().toLowerCase(),
+              name: fullName,
+            }),
+          });
+        } catch {
+          // Non-blocking: email will still be sent by Supabase as fallback
         }
 
         if (data.session) {

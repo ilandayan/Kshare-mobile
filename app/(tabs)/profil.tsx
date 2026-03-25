@@ -23,14 +23,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { UserProfile } from '@/lib/types';
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
-async function fetchProfile(userId: string): Promise<UserProfile | null> {
+async function fetchProfile(userId: string): Promise<(UserProfile & { notif_push?: boolean }) | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, full_name, phone, role, avatar_url, created_at')
+    .select('id, email, full_name, phone, role, avatar_url, created_at, notif_push')
     .eq('id', userId)
     .single();
   if (error) return null;
-  return data as UserProfile;
+  return data as UserProfile & { notif_push?: boolean };
 }
 
 function getInitials(profile: UserProfile | null, email: string | undefined): string {
@@ -123,8 +123,8 @@ function ToggleRow({
 export default function ProfilPage() {
   const { user, signOut } = useAppStore();
   const [signingOut, setSigningOut] = useState(false);
-  const [notifEmail, setNotifEmail] = useState(false);
   const [notifPush, setNotifPush] = useState(true);
+  const [savingNotifPush, setSavingNotifPush] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const { data: profile, isLoading } = useQuery({
@@ -132,6 +132,30 @@ export default function ProfilPage() {
     queryFn: () => (user?.id ? fetchProfile(user.id) : Promise.resolve(null)),
     enabled: !!user?.id,
   });
+
+  // Sync notif_push state from DB
+  useEffect(() => {
+    if (profile?.notif_push !== undefined) {
+      setNotifPush(profile.notif_push);
+    }
+  }, [profile?.notif_push]);
+
+  const handleToggleNotifPush = async (value: boolean) => {
+    if (!user?.id) return;
+    setNotifPush(value);
+    setSavingNotifPush(true);
+    try {
+      await supabase
+        .from('profiles')
+        .update({ notif_push: value })
+        .eq('id', user.id);
+    } catch {
+      // Revert on error
+      setNotifPush(!value);
+    } finally {
+      setSavingNotifPush(false);
+    }
+  };
 
   const fullName = profile?.full_name ?? '';
   const email = profile?.email ?? user?.email ?? '';
@@ -207,15 +231,9 @@ export default function ProfilPage() {
         <View style={styles.card}>
           <ToggleRow
             icon="notifications-outline"
-            label="Notifications email"
-            value={notifEmail}
-            onChange={setNotifEmail}
-          />
-          <ToggleRow
-            icon="notifications-outline"
             label="Notifications push"
             value={notifPush}
-            onChange={setNotifPush}
+            onChange={handleToggleNotifPush}
             last
           />
         </View>

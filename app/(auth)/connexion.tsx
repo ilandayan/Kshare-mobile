@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { KLogo } from '@/components/KLogo';
+import { trackEvent, identifyUser, MixpanelEvents } from '@/lib/mixpanel';
 
 async function requestLocationPermission() {
   if (Platform.OS === 'web') return;
@@ -86,6 +87,13 @@ export default function ConnexionPage() {
           );
           return;
         }
+
+        // Track login + identify user
+        identifyUser(data.user.id, {
+          email: email.trim().toLowerCase(),
+          role: 'client',
+        });
+        trackEvent(MixpanelEvents.LOGIN);
 
         // Request location permission after successful login
         await requestLocationPermission();

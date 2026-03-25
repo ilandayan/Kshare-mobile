@@ -24,6 +24,8 @@ import { supabase } from '@/lib/supabase';
 import { CommerceCard } from '@/components/CommerceCard';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Basket, BasketType } from '@/lib/types';
+import { trackEvent, MixpanelEvents } from '@/lib/mixpanel';
+import { router } from 'expo-router';
 
 // ── Category config ──────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -279,6 +281,11 @@ export default function AccueilPage() {
 
   const filterAnim = useRef(new Animated.Value(0)).current;
 
+  // Track home view
+  useEffect(() => {
+    trackEvent(MixpanelEvents.VIEW_HOME);
+  }, []);
+
   const day = timeFilter === 'tomorrow' ? 'tomorrow' : 'today';
 
   const { data: baskets = [], isLoading, refetch } = useQuery({
@@ -409,7 +416,7 @@ export default function AccueilPage() {
             activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel="Notifications"
-            onPress={() => Alert.alert('Notifications', 'Les notifications arrivent bientôt ! 🔔')}
+            onPress={() => router.push('/(tabs)/favoris')}
           >
             <Ionicons name="notifications-outline" size={22} color="#374151" />
             <View style={styles.notifDot} accessible={false} />
