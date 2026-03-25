@@ -48,7 +48,7 @@ export function usePayment() {
       // Google Pay (Apple Pay requires merchant ID from Apple Developer account)
       googlePay: {
         merchantCountryCode: 'FR',
-        testEnv: true,
+        testEnv: __DEV__,
       },
       // Required for redirect-based payment methods
       returnURL: 'kshare://stripe-redirect',
