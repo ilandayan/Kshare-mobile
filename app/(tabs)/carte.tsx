@@ -223,8 +223,8 @@ export default function CartePage() {
         distance: haversineKm(
           userLocation.latitude,
           userLocation.longitude,
-          b.commerces!.latitude!,
-          b.commerces!.longitude!,
+          b.commerces?.latitude ?? 0,
+          b.commerces?.longitude ?? 0,
         ),
       }))
       .sort((a, b) => a.distance - b.distance);
@@ -293,8 +293,8 @@ export default function CartePage() {
             const typeColors = Array.from(types).map((t) => BADGE_CONFIG[t]?.bg ?? '#3744C8');
             return (
               <Marker
-                key={commerce!.id}
-                coordinate={{ latitude: commerce!.latitude!, longitude: commerce!.longitude! }}
+                key={commerce?.id ?? cid}
+                coordinate={{ latitude: commerce?.latitude ?? 0, longitude: commerce?.longitude ?? 0 }}
               >
                 {/* Custom multi-color marker */}
                 <View style={styles.markerContainer}>
