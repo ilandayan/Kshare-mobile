@@ -47,116 +47,6 @@ const COMMERCE_TYPES = [
 
 type TimeFilter = 'now' | 'today' | 'tomorrow';
 
-// ── Mock data (until real baskets are in Supabase) ───────────────────────────
-const today = new Date().toISOString().slice(0, 10);
-const MOCK_BASKETS: Basket[] = [
-  {
-    id: 'mock-1', type: 'bassari', day: 'today',
-    description: 'Assortiment viandes grillées & marinées du jour',
-    original_price: 35, sold_price: 14.99,
-    quantity_total: 5, quantity_reserved: 1, quantity_sold: 1,
-    status: 'published', is_donation: false,
-    pickup_start: `${today}T17:00:00`, pickup_end: `${today}T19:00:00`,
-    created_at: new Date().toISOString(), commerce_id: 'c1',
-    commerces: {
-      id: 'c1', name: 'Boucherie David', address: '12 rue Cadet',
-      city: 'Paris', postal_code: '75009', logo_url: null, photos: null,
-      hashgakha: 'Beth Din', commerce_type: 'Boucherie',
-      latitude: 48.875, longitude: 2.345,
-    },
-  },
-  {
-    id: 'mock-2', type: 'halavi', day: 'today',
-    description: 'Pains au chocolat, croissants, brioches du matin',
-    original_price: 18, sold_price: 6.99,
-    quantity_total: 8, quantity_reserved: 2, quantity_sold: 4,
-    status: 'published', is_donation: false,
-    pickup_start: `${today}T16:30:00`, pickup_end: `${today}T18:30:00`,
-    created_at: new Date().toISOString(), commerce_id: 'c2',
-    commerces: {
-      id: 'c2', name: 'Boulangerie Lévy', address: '45 rue des Rosiers',
-      city: 'Paris', postal_code: '75004', logo_url: null, photos: null,
-      hashgakha: 'Beth Din', commerce_type: 'Boulangerie',
-      latitude: 48.857, longitude: 2.357,
-    },
-  },
-  {
-    id: 'mock-3', type: 'shabbat', day: 'today',
-    description: 'Panier Shabbat : hallot, vin, salades, dessert',
-    original_price: 55, sold_price: 24.99,
-    quantity_total: 4, quantity_reserved: 0, quantity_sold: 2,
-    status: 'published', is_donation: false,
-    pickup_start: `${today}T14:00:00`, pickup_end: `${today}T16:00:00`,
-    created_at: new Date().toISOString(), commerce_id: 'c3',
-    commerces: {
-      id: 'c3', name: 'Traiteur Cohen', address: '8 avenue de Flandre',
-      city: 'Paris', postal_code: '75019', logo_url: null, photos: null,
-      hashgakha: 'Loubavitch', commerce_type: 'Traiteur',
-      latitude: 48.886, longitude: 2.374,
-    },
-  },
-  {
-    id: 'mock-4', type: 'parve', day: 'today',
-    description: 'Fruits, légumes frais et produits bio du jour',
-    original_price: 22, sold_price: 8.99,
-    quantity_total: 6, quantity_reserved: 0, quantity_sold: 0,
-    status: 'published', is_donation: false,
-    pickup_start: `${today}T17:30:00`, pickup_end: `${today}T19:30:00`,
-    created_at: new Date().toISOString(), commerce_id: 'c4',
-    commerces: {
-      id: 'c4', name: 'Épicerie Hatikva', address: '22 rue Petit',
-      city: 'Paris', postal_code: '75019', logo_url: null, photos: null,
-      hashgakha: 'Beth Din', commerce_type: 'Épicerie',
-      latitude: 48.884, longitude: 2.381,
-    },
-  },
-  {
-    id: 'mock-5', type: 'mix', day: 'today',
-    description: 'Panier surprise mixte : viandes, salades, pains',
-    original_price: 40, sold_price: 16.99,
-    quantity_total: 3, quantity_reserved: 1, quantity_sold: 0,
-    status: 'published', is_donation: false,
-    pickup_start: `${today}T18:00:00`, pickup_end: `${today}T20:00:00`,
-    created_at: new Date().toISOString(), commerce_id: 'c5',
-    commerces: {
-      id: 'c5', name: 'Supermarché Kikar', address: '100 bd de Belleville',
-      city: 'Paris', postal_code: '75020', logo_url: null, photos: null,
-      hashgakha: 'Beth Din', commerce_type: 'Supermarché',
-      latitude: 48.870, longitude: 2.385,
-    },
-  },
-  {
-    id: 'mock-6', type: 'bassari', day: 'tomorrow',
-    description: 'Brochettes, merguez et entrecôtes',
-    original_price: 42, sold_price: 18.99,
-    quantity_total: 4, quantity_reserved: 0, quantity_sold: 0,
-    status: 'published', is_donation: false,
-    pickup_start: `${today}T17:00:00`, pickup_end: `${today}T19:00:00`,
-    created_at: new Date().toISOString(), commerce_id: 'c1',
-    commerces: {
-      id: 'c1', name: 'Boucherie David', address: '12 rue Cadet',
-      city: 'Paris', postal_code: '75009', logo_url: null, photos: null,
-      hashgakha: 'Beth Din', commerce_type: 'Boucherie',
-      latitude: 48.875, longitude: 2.345,
-    },
-  },
-  {
-    id: 'mock-7', type: 'halavi', day: 'tomorrow',
-    description: 'Gâteaux, tartes et viennoiseries du jour',
-    original_price: 25, sold_price: 9.99,
-    quantity_total: 6, quantity_reserved: 0, quantity_sold: 0,
-    status: 'published', is_donation: false,
-    pickup_start: `${today}T15:00:00`, pickup_end: `${today}T17:00:00`,
-    created_at: new Date().toISOString(), commerce_id: 'c6',
-    commerces: {
-      id: 'c6', name: 'Restaurant Mazal', address: '5 rue Richer',
-      city: 'Paris', postal_code: '75009', logo_url: null, photos: null,
-      hashgakha: 'Beth Din', commerce_type: 'Restaurant',
-      latitude: 48.874, longitude: 2.347,
-    },
-  },
-];
-
 // ── Data fetching ─────────────────────────────────────────────────────────────
 async function fetchBaskets(day: 'today' | 'tomorrow'): Promise<Basket[]> {
   const { data, error } = await supabase
@@ -175,10 +65,6 @@ async function fetchBaskets(day: 'today' | 'tomorrow'): Promise<Basket[]> {
 
   if (error) throw error;
   const real = (data ?? []) as unknown as Basket[];
-  // Fallback to mock data if DB is empty
-  if (real.length === 0) {
-    return MOCK_BASKETS.filter((b) => b.day === day);
-  }
   return real;
 }
 
@@ -641,7 +527,7 @@ export default function AccueilPage() {
         ) : (
           <View style={styles.cardList}>
             {displayed.map((b) => (
-              <CommerceCard key={b.id} basket={b} distanceKm={0.8} rating={4.8} />
+              <CommerceCard key={b.id} basket={b} />
             ))}
           </View>
         )}

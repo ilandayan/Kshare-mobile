@@ -2,8 +2,8 @@
   "expo": {
     "name": "Kshare",
     "slug": "kshare",
-    "version": "1.0.2",
-    "orientation": "portrait",
+    "version": "1.0.3",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -18,7 +18,7 @@
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": []
       },
-      "buildNumber": "4",
+      "buildNumber": "6",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleLocalizations": [
@@ -38,7 +38,7 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#3744C8"
       },
-      "versionCode": 3,
+      "versionCode": 4,
       "package": "com.kshare.app",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",

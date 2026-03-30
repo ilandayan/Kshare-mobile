@@ -22,7 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BASKET_TYPE_LABELS, type Order, type BasketType, type OrderStatus } from '@/lib/types';
 import { getCommerceImage } from '@/lib/commerceImages';
 import { RatingModal } from '@/components/RatingModal';
-import { MOCK_ORDERS } from '@/lib/mockOrders';
+
 
 // ── Badge configs ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
@@ -303,9 +303,8 @@ export default function PaniersPage() {
     enabled: !!user?.id,
   });
 
-  // Use mock data when no real orders exist (demo mode)
-  const orders = rawOrders.length > 0 ? rawOrders : MOCK_ORDERS;
-  const isDemo = rawOrders.length === 0;
+  const orders = rawOrders;
+  const isDemo = false;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

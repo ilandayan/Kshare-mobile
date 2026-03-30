@@ -193,4 +193,11 @@ function RootLayout() {
   );
 }
 
-export default Sentry.wrap(RootLayout);
+// Wrap with Sentry safely — if Sentry native module isn't linked, fall back to unwrapped
+let ExportedLayout: React.ComponentType;
+try {
+  ExportedLayout = Sentry.wrap(RootLayout);
+} catch {
+  ExportedLayout = RootLayout;
+}
+export default ExportedLayout;

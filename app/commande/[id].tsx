@@ -20,14 +20,7 @@ import { SwipeConfirmButton } from '@/components/SwipeConfirmButton';
 import { RatingModal } from '@/components/RatingModal';
 import { BasketTypeBadge } from '@/components/BasketTypeBadge';
 import { BASKET_TYPE_LABELS, type Order } from '@/lib/types';
-import { isMockOrderId, getMockOrderById } from '@/lib/mockOrders';
-
 async function fetchOrder(id: string): Promise<Order | null> {
-  // Mock orders: return local data without hitting Supabase
-  if (isMockOrderId(id)) {
-    return getMockOrderById(id) ?? null;
-  }
-
   const { data, error } = await supabase
     .from('orders')
     .select(
