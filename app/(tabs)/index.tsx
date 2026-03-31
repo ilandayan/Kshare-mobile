@@ -253,9 +253,10 @@ export default function AccueilPage() {
     setRefreshing(false);
   }, [refetch]);
 
-  // Filter baskets by category + commerce type
-  const displayed = baskets.filter((b) => {
-    const hasStock = b.quantity_total - b.quantity_reserved - b.quantity_sold > 0;
+  // Filter baskets by category + commerce type (safe against null/undefined)
+  const displayed = (baskets ?? []).filter((b) => {
+    if (!b) return false;
+    const hasStock = (b.quantity_total ?? 0) - (b.quantity_reserved ?? 0) - (b.quantity_sold ?? 0) > 0;
     const matchCat = selectedCategories.length === 0 || selectedCategories.includes(b.type);
     const matchCommerceType = selectedCommerceTypes.length === 0 || selectedCommerceTypes.includes(b.commerces?.commerce_type ?? '');
     return hasStock && matchCat && matchCommerceType;

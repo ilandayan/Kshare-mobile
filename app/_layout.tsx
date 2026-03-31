@@ -55,9 +55,9 @@ function RootLayoutInner() {
   // Register push notifications (physical devices only)
   usePushNotifications();
 
-  // Initialize Mixpanel (non-blocking)
+  // Initialize Mixpanel (non-blocking, wrapped in try-catch)
   useEffect(() => {
-    getMixpanel();
+    try { getMixpanel(); } catch { /* analytics init failed — non-critical */ }
   }, []);
 
   const { setUserRole } = useAppStore();

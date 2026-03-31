@@ -13,22 +13,25 @@ let _initialized = false;
  */
 export async function getMixpanel(): Promise<Mixpanel | null> {
   if (!MIXPANEL_TOKEN) return null;
+  // Avoid Mixpanel init on web (can crash Hermes on some devices)
+  if (Platform.OS === 'web') return null;
 
-  if (!_mixpanel) {
-    _mixpanel = new Mixpanel(MIXPANEL_TOKEN, true);  // trackAutomaticEvents = true
-  }
+  try {
+    if (!_mixpanel) {
+      _mixpanel = new Mixpanel(MIXPANEL_TOKEN, true);  // trackAutomaticEvents = true
+    }
 
-  if (!_initialized) {
-    try {
+    if (!_initialized) {
       await _mixpanel.init();
       _initialized = true;
-    } catch {
-      // Silently fail — analytics should never break the app
-      return null;
     }
-  }
 
-  return _mixpanel;
+    return _mixpanel;
+  } catch {
+    // Silently fail — analytics should never break the app
+    _mixpanel = null;
+    return null;
+  }
 }
 
 // ── Event names (single source of truth) ────────────────────────────
