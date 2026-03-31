@@ -36,9 +36,10 @@ async function fetchProfile(userId: string): Promise<(UserProfile & { notif_push
 
 function getInitials(profile: UserProfile | null, email: string | undefined): string {
   if (!profile) return (email?.[0] ?? '?').toUpperCase();
-  const name = profile.full_name ?? '';
-  const parts = name.trim().split(/\s+/);
-  const initials = parts.map((p) => p[0]).join('').toUpperCase();
+  const name = (profile.full_name ?? '').trim();
+  if (!name) return (profile.email?.[0] ?? '?').toUpperCase();
+  const parts = name.split(/\s+/).filter(Boolean);
+  const initials = parts.map((p) => p[0] ?? '').join('').toUpperCase();
   return initials || (profile.email?.[0] ?? '?').toUpperCase();
 }
 

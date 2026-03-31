@@ -75,8 +75,8 @@ export default function SupportPage() {
       .order('created_at', { ascending: false })
       .limit(20)
       .then(({ data }) => {
-        const mapped: UserOrder[] = (data ?? []).map((o: any) => {
-          const shortId = o.id.replace(/-/g, '').slice(-4).toUpperCase();
+        const mapped: UserOrder[] = (data ?? []).filter((o: any) => o?.id).map((o: any) => {
+          const shortId = (o.id ?? '').replace(/-/g, '').slice(-4).toUpperCase();
           const year = new Date(o.created_at).getFullYear();
           const dateStr = new Date(o.created_at).toLocaleDateString('fr-FR', {
             day: 'numeric',

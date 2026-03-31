@@ -8,7 +8,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase env vars:', { supabaseUrl: !!supabaseUrl, supabaseAnonKey: !!supabaseAnonKey });
 }
 
-// Web: use localStorage, Native: use expo-secure-store
+// Web: use localStorage, Native: use expo-secure-store (with fallback)
 let storageAdapter: {
   getItem: (key: string) => Promise<string | null>;
   setItem: (key: string, value: string) => Promise<void>;
@@ -22,13 +22,23 @@ if (Platform.OS === 'web') {
     removeItem: async (key: string) => localStorage.removeItem(key),
   };
 } else {
-  // Dynamic import for native only
-  const SecureStore = require('expo-secure-store');
-  storageAdapter = {
-    getItem: (key: string): Promise<string | null> => SecureStore.getItemAsync(key),
-    setItem: (key: string, value: string): Promise<void> => SecureStore.setItemAsync(key, value),
-    removeItem: (key: string): Promise<void> => SecureStore.deleteItemAsync(key),
-  };
+  // Dynamic import for native — wrapped in try-catch to prevent TurboModule crash on iPad
+  try {
+    const SecureStore = require('expo-secure-store');
+    storageAdapter = {
+      getItem: (key: string): Promise<string | null> => SecureStore.getItemAsync(key),
+      setItem: (key: string, value: string): Promise<void> => SecureStore.setItemAsync(key, value),
+      removeItem: (key: string): Promise<void> => SecureStore.deleteItemAsync(key),
+    };
+  } catch {
+    // Fallback: in-memory storage if SecureStore fails to load
+    const memoryStore = new Map<string, string>();
+    storageAdapter = {
+      getItem: async (key: string) => memoryStore.get(key) ?? null,
+      setItem: async (key: string, value: string) => { memoryStore.set(key, value); },
+      removeItem: async (key: string) => { memoryStore.delete(key); },
+    };
+  }
 }
 
 export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {

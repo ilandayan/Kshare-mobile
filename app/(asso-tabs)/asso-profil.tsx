@@ -58,10 +58,11 @@ export default function AssoProfilScreen() {
 
   const initials = (profile?.name ?? 'A')
     .split(' ')
-    .map((w) => w[0])
+    .filter(Boolean)
+    .map((w) => w[0] ?? '')
     .join('')
     .slice(0, 2)
-    .toUpperCase();
+    .toUpperCase() || 'A';
 
   return (
     <ScrollView

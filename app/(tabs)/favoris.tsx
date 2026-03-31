@@ -81,7 +81,7 @@ export default function FavorisPage() {
         .select('commerce_id')
         .eq('client_id', user.id)
         .then(({ data }) => {
-          if (data) setFavorites(data.map((f: { commerce_id: string }) => f.commerce_id));
+          if (data) setFavorites(data.filter((f: any) => f?.commerce_id).map((f: { commerce_id: string }) => f.commerce_id));
         });
     }
   }, [user?.id, setFavorites]);
@@ -98,8 +98,10 @@ export default function FavorisPage() {
 
   // Sort: commerces with available baskets first, then grayed out
   const sorted = [...favoriteCommerces].sort((a, b) => {
-    if (a.availableBaskets.length > 0 && b.availableBaskets.length === 0) return -1;
-    if (a.availableBaskets.length === 0 && b.availableBaskets.length > 0) return 1;
+    const aLen = a.availableBaskets?.length ?? 0;
+    const bLen = b.availableBaskets?.length ?? 0;
+    if (aLen > 0 && bLen === 0) return -1;
+    if (aLen === 0 && bLen > 0) return 1;
     return 0;
   });
 
@@ -110,15 +112,15 @@ export default function FavorisPage() {
   }, [refetch]);
 
   const handleCommercePress = (commerce: FavoriteCommerce) => {
-    if (commerce.availableBaskets.length > 0) {
-      // Navigate to the first available basket
-      router.push(`/panier/${commerce.availableBaskets[0].id}`);
+    const firstBasket = commerce.availableBaskets?.[0];
+    if (firstBasket?.id) {
+      router.push(`/panier/${firstBasket.id}`);
     }
   };
 
   const renderCommerce = ({ item }: { item: FavoriteCommerce }) => {
-    const hasBaskets = item.availableBaskets.length > 0;
-    const basketCount = item.availableBaskets.length;
+    const hasBaskets = (item.availableBaskets?.length ?? 0) > 0;
+    const basketCount = item.availableBaskets?.length ?? 0;
 
     return (
       <TouchableOpacity
