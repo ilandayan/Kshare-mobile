@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -298,8 +299,8 @@ export default function ReservationsScreen() {
 
 // ── Styles ───────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB' },
+  container: { flex: 1, backgroundColor: '#ECEEF4' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ECEEF4' },
 
   header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4 },
   title: { fontSize: 26, fontWeight: '800', color: '#111827' },
@@ -326,14 +327,20 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 14,
     marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#e2e5f0',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1e293b',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
+      },
+      android: { elevation: 5 },
+    }),
   },
   cardTop: { flexDirection: 'row', alignItems: 'center' },
 

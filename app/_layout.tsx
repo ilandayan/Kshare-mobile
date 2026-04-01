@@ -104,9 +104,9 @@ function RootLayoutInner() {
   }, [setSession, setLoading, setUserRole]);
 
   const appContent = (
-    <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
-      <StatusBar style="dark" backgroundColor="#ffffff" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#ffffff' } }}>
+    <View style={{ flex: 1, backgroundColor: '#ECEEF4' }}>
+      <StatusBar style="dark" backgroundColor="#ECEEF4" />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#ECEEF4' } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />

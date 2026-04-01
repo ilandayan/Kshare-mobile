@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  ScrollView,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -118,6 +119,63 @@ export default function FavorisPage() {
     }
   };
 
+  function BasketSlider({ baskets }: { baskets: FavoriteCommerce['availableBaskets'] }) {
+    const [scrolledRight, setScrolledRight] = useState(false);
+    const [atEnd, setAtEnd] = useState(false);
+
+    const handleScroll = useCallback((e: any) => {
+      const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+      const isAtStart = contentOffset.x <= 5;
+      const isAtEnd = contentOffset.x + layoutMeasurement.width >= contentSize.width - 5;
+      setScrolledRight(!isAtStart);
+      setAtEnd(isAtEnd);
+    }, []);
+
+    return (
+      <View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.basketPreviewRow}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+        >
+          {baskets.map((b) => {
+            const saving = Math.round((1 - b.sold_price / b.original_price) * 100);
+            const typeInfo = BASKET_TYPE_LABELS[b.type as BasketType];
+            return (
+              <TouchableOpacity
+                key={b.id}
+                style={[styles.basketChip, { borderColor: typeInfo.color + '40' }]}
+                onPress={() => router.push(`/panier/${b.id}`)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.basketChipLabel, { color: typeInfo.color }]}>{typeInfo.label}</Text>
+                <Text style={styles.basketChipPrice}>{b.sold_price.toFixed(2)}€</Text>
+                <View style={styles.basketChipSavingRow}>
+                  <Text style={[styles.basketChipSaving, { color: typeInfo.color }]}>-{saving}%</Text>
+                  <Text style={styles.basketChipOriginal}>{b.original_price.toFixed(2)}€</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+        {/* Flèche droite (visible au début) */}
+        {!atEnd && (
+          <View style={[styles.swipeArrowOverlay, { right: 0 }]}>
+            <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+          </View>
+        )}
+        {/* Flèche gauche (visible après scroll) */}
+        {scrolledRight && (
+          <View style={[styles.swipeArrowOverlay, { left: 0 }]}>
+            <Ionicons name="chevron-back" size={16} color="#9CA3AF" />
+          </View>
+        )}
+      </View>
+    );
+  }
+
   const renderCommerce = ({ item }: { item: FavoriteCommerce }) => {
     const hasBaskets = (item.availableBaskets?.length ?? 0) > 0;
     const basketCount = item.availableBaskets?.length ?? 0;
@@ -185,9 +243,11 @@ export default function FavorisPage() {
         </View>
 
         {/* Available basket previews */}
-        {hasBaskets && (
+        {hasBaskets && basketCount > 3 ? (
+          <BasketSlider baskets={item.availableBaskets} />
+        ) : hasBaskets ? (
           <View style={styles.basketPreviewRow}>
-            {item.availableBaskets.slice(0, 3).map((b) => {
+            {item.availableBaskets.map((b) => {
               const saving = Math.round((1 - b.sold_price / b.original_price) * 100);
               const typeInfo = BASKET_TYPE_LABELS[b.type as BasketType];
               return (
@@ -206,13 +266,8 @@ export default function FavorisPage() {
                 </TouchableOpacity>
               );
             })}
-            {basketCount > 3 && (
-              <View style={styles.basketChipMore}>
-                <Text style={styles.basketChipMoreText}>+{basketCount - 3}</Text>
-              </View>
-            )}
           </View>
-        )}
+        ) : null}
       </TouchableOpacity>
     );
   };
@@ -242,7 +297,7 @@ export default function FavorisPage() {
         <FlatList
           data={sorted}
           keyExtractor={(item) => item.id}
-          style={{ backgroundColor: '#F8F9FC' }}
+          style={{ backgroundColor: '#ECEEF4' }}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -303,17 +358,19 @@ const styles = StyleSheet.create({
   // ── Card ──
   card: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e2e5f0',
     ...Platform.select({
       ios: {
         shadowColor: '#1e293b',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.07,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
       },
-      android: { elevation: 3 },
+      android: { elevation: 5 },
     }),
   },
   cardDimmed: {
@@ -441,6 +498,15 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#9CA3AF',
     textDecorationLine: 'line-through',
+  },
+  swipeArrowOverlay: {
+    position: 'absolute',
+    right: 0,
+    top: 25,
+    bottom: 0,
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   basketChipMore: {
     backgroundColor: '#F3F4F6',

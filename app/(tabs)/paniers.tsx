@@ -381,7 +381,7 @@ export default function PaniersPage() {
         <FlatList
           data={displayed}
           keyExtractor={(item) => item.id}
-          style={{ backgroundColor: '#F8F9FC' }}
+          style={{ backgroundColor: '#ECEEF4' }}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
@@ -516,18 +516,18 @@ const styles = StyleSheet.create({
   // Order card
   orderCard: {
     backgroundColor: '#fff',
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#F0F1F5',
+    borderColor: '#e2e5f0',
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
+        shadowColor: '#1e293b',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
       },
-      android: { elevation: 2 },
+      android: { elevation: 5 },
     }),
   },
   cardHeader: {

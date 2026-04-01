@@ -215,7 +215,7 @@ export default function ProfilPage() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="dark" />
-      <ScrollView showsVerticalScrollIndicator={false} style={{ backgroundColor: '#F4F5F9' }}>
+      <ScrollView showsVerticalScrollIndicator={false} style={{ backgroundColor: '#ECEEF4' }}>
 
         {/* ── Avatar + name ── */}
         <LinearGradient

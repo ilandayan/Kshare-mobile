@@ -391,11 +391,10 @@ export default function CartePage() {
                 <Text style={styles.emptyText}>Aucun commerce dans un rayon de {radiusKm} km</Text>
               </View>
             ) : (
-              nearbyBaskets.map(({ basket, distance }, i) => (
-                <React.Fragment key={basket.id}>
+              nearbyBaskets.map(({ basket, distance }) => (
+                <View key={basket.id} style={styles.itemCard}>
                   <CommerceListItem basket={basket} distance={distance} />
-                  {i < nearbyBaskets.length - 1 && <View style={styles.divider} />}
-                </React.Fragment>
+                </View>
               ))
             )}
             <View style={{ height: 20 }} />
@@ -511,7 +510,7 @@ const styles = StyleSheet.create({
   // Sheet
   sheet: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#ECEEF4',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     marginTop: -20,
@@ -547,7 +546,28 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   sheetContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    gap: 10,
+    paddingBottom: 20,
+  },
+  itemCard: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#e2e5f0',
+    paddingLeft: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingRight: 0,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1e293b',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
+      },
+      android: { elevation: 5 },
+    }),
   },
   locationWarning: {
     flexDirection: 'row',

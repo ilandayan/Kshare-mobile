@@ -160,19 +160,21 @@ export function BasketCard({ basket, variant = 'vertical', distanceKm }: BasketC
 const styles = StyleSheet.create({
   // Vertical card
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderRadius: 18,
     overflow: 'hidden',
     width: 180,
+    borderWidth: 1,
+    borderColor: '#e2e5f0',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
+        shadowColor: '#1e293b',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
       },
       android: {
-        elevation: 3,
+        elevation: 5,
       },
     }),
   },

@@ -505,11 +505,8 @@ export default function AccueilPage() {
         {/* ── Section header ── */}
         <View style={styles.availRow}>
           <Text style={styles.availLabel}>
-            {timeFilter === 'tomorrow' ? 'DISPONIBLE DEMAIN' : 'DISPONIBLE MAINTENANT'}
+            {timeFilter === 'tomorrow' ? 'DISPONIBLE DEMAIN' : timeFilter === 'today' ? "DISPONIBLE AUJOURD'HUI" : 'DISPONIBLE MAINTENANT'}
           </Text>
-          <TouchableOpacity>
-            <Text style={styles.availLink}>Tout voir</Text>
-          </TouchableOpacity>
         </View>
 
         {/* ── Commerce cards ── */}

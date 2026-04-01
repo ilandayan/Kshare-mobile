@@ -193,14 +193,16 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e2e5f0',
     ...Platform.select({
       ios: {
         shadowColor: '#1e293b',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.09,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
       },
-      android: { elevation: 4 },
+      android: { elevation: 5 },
     }),
   },
   imageWrap: {

@@ -15,6 +15,8 @@ export async function getMixpanel(): Promise<Mixpanel | null> {
   if (!MIXPANEL_TOKEN) return null;
   // Avoid Mixpanel init on web (can crash Hermes on some devices)
   if (Platform.OS === 'web') return null;
+  // Skip in Expo Go dev client — no persistent storage available
+  if (__DEV__) return null;
 
   try {
     if (!_mixpanel) {

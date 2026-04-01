@@ -197,13 +197,13 @@ export default function RechercherPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#ECEEF4',
   },
   header: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
     paddingTop: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: '#e2e5f0',
   },
   title: {
     fontSize: 24,

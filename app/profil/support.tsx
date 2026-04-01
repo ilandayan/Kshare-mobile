@@ -187,7 +187,7 @@ export default function SupportPage() {
       >
         <ScrollView
           showsVerticalScrollIndicator={false}
-          style={{ backgroundColor: '#F4F5F9' }}
+          style={{ backgroundColor: '#ECEEF4' }}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#ECEEF4',
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
     borderRadius: 12,
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     color: '#3744C8',
   },
   input: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#ECEEF4',
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 12,

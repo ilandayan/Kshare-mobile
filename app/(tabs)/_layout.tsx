@@ -57,7 +57,7 @@ export default function TabLayout() {
             colors={['#1e2a78', '#2d4de0', '#4f6df5']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
+            style={[StyleSheet.absoluteFill, { borderRadius: 20 }]}
           />
         ),
         tabBarStyle: {
@@ -66,6 +66,12 @@ export default function TabLayout() {
           paddingBottom: Platform.OS === 'android' ? 10 : 26,
           paddingTop: 8,
           elevation: 0,
+          borderRadius: 20,
+          overflow: 'hidden',
+          position: 'absolute',
+          bottom: 0,
+          left: Platform.OS === 'web' ? 10 : 0,
+          right: Platform.OS === 'web' ? 10 : 0,
         },
         tabBarLabelStyle: {
           fontSize: 11,
