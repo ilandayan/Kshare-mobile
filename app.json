@@ -55,7 +55,7 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundColor": "#3744C8"
       },
-      "versionCode": 3,
+      "versionCode": 4,
       "package": "fr.kshare.app",
       "googleServicesFile": "./google-services.json",
       "config": {

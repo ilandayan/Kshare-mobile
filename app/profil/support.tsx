@@ -148,12 +148,20 @@ export default function SupportPage() {
   const items = [
     {
       icon: 'create-outline' as IoniconName,
-      label: 'Envoyer un message',
-      subtitle: 'Réponse rapide par notre équipe',
+      label: 'Nouvelle demande',
+      subtitle: 'Contactez notre équipe',
       onPress: () => setShowForm(true),
     },
+    // TEMP: entrée "Mes demandes" désactivée en attendant que la release
+    // iOS + Android sorte en même temps avec l'interface support.
+    // {
+    //   icon: 'chatbubbles-outline' as IoniconName,
+    //   label: 'Mes demandes',
+    //   subtitle: "Historique et réponses de l'équipe",
+    //   onPress: () => router.push('/profil/mes-demandes'),
+    // },
     {
-      icon: 'chatbubble-ellipses-outline' as IoniconName,
+      icon: 'help-circle-outline' as IoniconName,
       label: 'FAQ',
       subtitle: 'Questions fréquentes',
       onPress: () => Linking.openURL('https://k-share.fr/faq'),
