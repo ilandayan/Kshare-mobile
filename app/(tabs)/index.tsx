@@ -26,6 +26,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { Basket, BasketType } from '@/lib/types';
 import { trackEvent, MixpanelEvents } from '@/lib/mixpanel';
 import { router } from 'expo-router';
+import { useAppStore } from '@/lib/store';
 
 // ── Category config ──────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -153,9 +154,28 @@ function DistanceSlider({
   );
 }
 
+// Distance haversine en km entre 2 coords lat/lng
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function AccueilPage() {
-  const [location, setLocation] = useState<string | null>(null);
+  const { userLocation, setUserLocation } = useAppStore();
+  const location = userLocation?.cityName ?? null;
+  // userCoords vaut null si lat/lng = 0 (state intermédiaire) → pas de filtre distance
+  const userCoords =
+    userLocation && (userLocation.lat !== 0 || userLocation.lng !== 0)
+      ? { lat: userLocation.lat, lng: userLocation.lng }
+      : null;
   const [showPostalModal, setShowPostalModal] = useState(false);
   const [postalInput, setPostalInput] = useState('');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('now');
@@ -179,20 +199,30 @@ export default function AccueilPage() {
     queryFn: () => fetchBaskets(day),
   });
 
-  // Resolve postal code to city name via API
+  // Resolve postal code to city name + coords via API
   const resolvePostalCode = useCallback(async (code: string) => {
     try {
-      const res = await fetch(`https://geo.api.gouv.fr/communes?codePostal=${code}&fields=nom&limit=1`);
+      const res = await fetch(`https://geo.api.gouv.fr/communes?codePostal=${code}&fields=nom,centre&limit=1`);
       const data = await res.json();
       if (data?.[0]?.nom) {
-        setLocation(data[0].nom);
+        const cityName = data[0].nom;
+        // Centre est un GeoJSON Point: { type: 'Point', coordinates: [lng, lat] }
+        const centre = data[0].centre;
+        if (centre?.coordinates && Array.isArray(centre.coordinates)) {
+          const [lng, lat] = centre.coordinates;
+          if (typeof lat === 'number' && typeof lng === 'number') {
+            setUserLocation({ lat, lng, cityName });
+            return;
+          }
+        }
+        setUserLocation({ lat: 0, lng: 0, cityName });
       } else {
-        setLocation(code);
+        setUserLocation({ lat: 0, lng: 0, cityName: code });
       }
     } catch {
-      setLocation(code);
+      setUserLocation({ lat: 0, lng: 0, cityName: code });
     }
-  }, []);
+  }, [setUserLocation]);
 
   const handlePostalSubmit = useCallback(() => {
     const code = postalInput.trim();
@@ -202,10 +232,11 @@ export default function AccueilPage() {
     }
   }, [postalInput, resolvePostalCode]);
 
-  // Geo: get city name or ask for postal code
+  // Geo: get city name or ask for postal code (skip si déjà défini par l'user)
   useEffect(() => {
+    if (userLocation) return; // ne pas écraser un choix manuel
     if (Platform.OS === 'web') {
-      setLocation('Paris');
+      setUserLocation({ lat: 48.8566, lng: 2.3522, cityName: 'Paris' });
       return;
     }
     (async () => {
@@ -213,7 +244,6 @@ export default function AccueilPage() {
         const Location = require('expo-location');
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          // Location denied — show postal code modal
           setShowPostalModal(true);
           return;
         }
@@ -224,14 +254,16 @@ export default function AccueilPage() {
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
         });
-        if (addr?.city) {
-          setLocation(addr.city);
-        }
+        setUserLocation({
+          lat: loc.coords.latitude,
+          lng: loc.coords.longitude,
+          cityName: addr?.city ?? null,
+        });
       } catch {
         setShowPostalModal(true);
       }
     })();
-  }, []);
+  }, [userLocation, setUserLocation]);
 
   // Animate filter panel
   useEffect(() => {
@@ -253,13 +285,26 @@ export default function AccueilPage() {
     setRefreshing(false);
   }, [refetch]);
 
-  // Filter baskets by category + commerce type (safe against null/undefined)
+  // Filter baskets by category + commerce type + distance (si user position connue)
   const displayed = (baskets ?? []).filter((b) => {
     if (!b) return false;
     const hasStock = (b.quantity_total ?? 0) - (b.quantity_reserved ?? 0) - (b.quantity_sold ?? 0) > 0;
     const matchCat = selectedCategories.length === 0 || selectedCategories.includes(b.type);
     const matchCommerceType = selectedCommerceTypes.length === 0 || selectedCommerceTypes.includes(b.commerces?.commerce_type ?? '');
-    return hasStock && matchCat && matchCommerceType;
+
+    // Filtre distance — appliqué uniquement si on a la position user ET les coords du commerce
+    let matchDistance = true;
+    if (userCoords && b.commerces?.latitude != null && b.commerces?.longitude != null) {
+      const km = haversineKm(
+        userCoords.lat,
+        userCoords.lng,
+        b.commerces.latitude,
+        b.commerces.longitude,
+      );
+      matchDistance = km <= distance;
+    }
+
+    return hasStock && matchCat && matchCommerceType && matchDistance;
   });
 
   const TIME_TABS: { key: TimeFilter; label: string }[] = [
@@ -303,7 +348,7 @@ export default function AccueilPage() {
             activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel="Notifications"
-            onPress={() => router.push('/(tabs)/favoris')}
+            onPress={() => router.push('/notifications')}
           >
             <Ionicons name="notifications-outline" size={22} color="#374151" />
             <View style={styles.notifDot} accessible={false} />
@@ -542,7 +587,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 120,
   },
 
   // ── Branded header ──

@@ -1,17 +1,22 @@
-import { Mixpanel } from 'mixpanel-react-native';
 import { Platform } from 'react-native';
 
-// ── Mixpanel singleton ──────────────────────────────────────────────
+// ── Mixpanel singleton (lazy-loaded to prevent iPad crash at module load) ──
 const MIXPANEL_TOKEN = process.env.EXPO_PUBLIC_MIXPANEL_TOKEN ?? '';
 
-let _mixpanel: Mixpanel | null = null;
+// Use `any` to avoid statically importing the native module type.
+// The native module is only loaded at runtime via require() inside getMixpanel().
+let _mixpanel: any = null;
 let _initialized = false;
+let _loadFailed = false;
 
 /**
  * Returns the shared Mixpanel instance.
  * Lazily initialised on first call; safe to call multiple times.
+ * The native module is loaded dynamically to prevent crashes on devices
+ * where mixpanel-react-native has compatibility issues (e.g. some iPads).
  */
-export async function getMixpanel(): Promise<Mixpanel | null> {
+export async function getMixpanel(): Promise<any> {
+  if (_loadFailed) return null;
   if (!MIXPANEL_TOKEN) return null;
   // Avoid Mixpanel init on web (can crash Hermes on some devices)
   if (Platform.OS === 'web') return null;
@@ -20,7 +25,9 @@ export async function getMixpanel(): Promise<Mixpanel | null> {
 
   try {
     if (!_mixpanel) {
-      _mixpanel = new Mixpanel(MIXPANEL_TOKEN, true);  // trackAutomaticEvents = true
+      // Dynamic require — only loads the native module when actually needed
+      const { Mixpanel } = require('mixpanel-react-native');
+      _mixpanel = new Mixpanel(MIXPANEL_TOKEN, true); // trackAutomaticEvents = true
     }
 
     if (!_initialized) {
@@ -32,6 +39,7 @@ export async function getMixpanel(): Promise<Mixpanel | null> {
   } catch {
     // Silently fail — analytics should never break the app
     _mixpanel = null;
+    _loadFailed = true;
     return null;
   }
 }

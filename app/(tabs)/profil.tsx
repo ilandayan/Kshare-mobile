@@ -215,7 +215,7 @@ export default function ProfilPage() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="dark" />
-      <ScrollView showsVerticalScrollIndicator={false} style={{ backgroundColor: '#ECEEF4' }}>
+      <ScrollView showsVerticalScrollIndicator={false} style={{ backgroundColor: '#ECEEF4' }} contentContainerStyle={{ paddingBottom: 120 }}>
 
         {/* ── Avatar + name ── */}
         <LinearGradient
@@ -242,21 +242,27 @@ export default function ProfilPage() {
         <View style={styles.card}>
           <ProfileRow
             icon="person-outline"
-            label="Nom et prénom"
-            value={fullName || '—'}
-            onPress={() => router.push('/profil/edit')}
+            label="Prénom"
+            value={(fullName.trim().split(/\s+/)[0]) || '—'}
+            onPress={() => router.push('/profil/edit?field=firstName')}
+          />
+          <ProfileRow
+            icon="person-outline"
+            label="Nom"
+            value={(fullName.trim().split(/\s+/).slice(1).join(' ')) || '—'}
+            onPress={() => router.push('/profil/edit?field=lastName')}
           />
           <ProfileRow
             icon="mail-outline"
             label="Email"
             value={email}
-            onPress={() => router.push('/profil/edit')}
+            onPress={() => router.push('/profil/edit?field=email')}
           />
           <ProfileRow
             icon="call-outline"
             label="Téléphone"
             value={profile?.phone ?? '—'}
-            onPress={() => router.push('/profil/edit')}
+            onPress={() => router.push('/profil/edit?field=phone')}
           />
           <ProfileRow
             icon="card-outline"
@@ -349,7 +355,7 @@ export default function ProfilPage() {
               <ActivityIndicator color="#9CA3AF" size="small" />
             ) : (
               <>
-                <Ionicons name="trash-outline" size={16} color="#9CA3AF" />
+                <Ionicons name="trash-outline" size={18} color="#EF4444" />
                 <Text style={styles.deleteText}>Supprimer mon compte</Text>
               </>
             )}
@@ -573,14 +579,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
+    gap: 8,
+    paddingVertical: 16,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
   },
   deleteText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#9CA3AF',
-    textDecorationLine: 'underline',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#EF4444',
   },
 
   // Modal

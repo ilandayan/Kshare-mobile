@@ -16,6 +16,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
+import { useAppStore } from '@/lib/store';
 
 // react-native-maps only works on native (iOS/Android), not web
 let MapView: any = null;
@@ -170,29 +171,37 @@ function CommerceListItem({ basket, distance }: { basket: Basket; distance: numb
 // ── Main screen ──────────────────────────────────────────────────────────────
 export default function CartePage() {
   const [refreshing, setRefreshing] = useState(false);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const { userLocation: storedLocation, setUserLocation: setStoredLocation } = useAppStore();
+  const userLocation = storedLocation && (storedLocation.lat !== 0 || storedLocation.lng !== 0)
+    ? { latitude: storedLocation.lat, longitude: storedLocation.lng }
+    : null;
   const [locationError, setLocationError] = useState(false);
   const [radiusKm, setRadiusKm] = useState<number>(1);
   const mapRef = React.useRef<MapView>(null);
 
-  // Request location
+  // Request location si pas encore connue (sinon utilise celle du store partagée avec home)
   useEffect(() => {
+    if (userLocation) return;
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         setLocationError(true);
-        setUserLocation(DEFAULT_LOCATION);
+        setStoredLocation({ lat: DEFAULT_LOCATION.latitude, lng: DEFAULT_LOCATION.longitude, cityName: 'Paris' });
         return;
       }
       try {
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        setUserLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+        setStoredLocation({
+          lat: loc.coords.latitude,
+          lng: loc.coords.longitude,
+          cityName: null,
+        });
       } catch {
         setLocationError(true);
-        setUserLocation(DEFAULT_LOCATION);
+        setStoredLocation({ lat: DEFAULT_LOCATION.latitude, lng: DEFAULT_LOCATION.longitude, cityName: 'Paris' });
       }
     })();
-  }, []);
+  }, [userLocation, setStoredLocation]);
 
   const { data: baskets = [], isLoading, refetch } = useQuery({
     queryKey: ['baskets-carte'],
@@ -204,6 +213,20 @@ export default function CartePage() {
     await refetch();
     setRefreshing(false);
   }, [refetch]);
+
+  // Anime la carte vers la nouvelle position user (ex: changement code postal depuis home)
+  useEffect(() => {
+    if (!userLocation || !mapRef.current) return;
+    mapRef.current.animateToRegion(
+      {
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: deltaForKm(radiusKm),
+        longitudeDelta: deltaForKm(radiusKm),
+      },
+      400,
+    );
+  }, [userLocation?.latitude, userLocation?.longitude, radiusKm]);
 
   // Filter available baskets within radius, sorted by distance
   const nearbyBaskets = useMemo(() => {
@@ -293,7 +316,7 @@ export default function CartePage() {
             const typeColors = Array.from(types).map((t) => BADGE_CONFIG[t]?.bg ?? '#3744C8');
             return (
               <Marker
-                key={commerce?.id ?? cid}
+                key={commerce?.id ?? firstBasketId}
                 coordinate={{ latitude: commerce?.latitude ?? 0, longitude: commerce?.longitude ?? 0 }}
               >
                 {/* Custom multi-color marker */}
@@ -309,7 +332,7 @@ export default function CartePage() {
                 </View>
                 <Callout onPress={() => router.push(`/panier/${firstBasketId}`)}>
                   <View style={styles.callout}>
-                    <Text style={styles.calloutTitle}>{commerce!.name}</Text>
+                    <Text style={styles.calloutTitle}>{commerce?.name ?? 'Commerce'}</Text>
                     <Text style={styles.calloutSub}>
                       {distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(1)} km`}
                       {' · '}
@@ -548,7 +571,7 @@ const styles = StyleSheet.create({
   sheetContent: {
     paddingHorizontal: 16,
     gap: 10,
-    paddingBottom: 20,
+    paddingBottom: 120,
   },
   itemCard: {
     backgroundColor: '#fff',

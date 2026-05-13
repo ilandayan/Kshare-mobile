@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   kpiNumber: { fontSize: 22, fontWeight: '800' },
   kpiLabel: { fontSize: 11, fontWeight: '600', color: '#6B7280', marginTop: 2 },
 
-  list: { paddingHorizontal: 16, paddingBottom: 24 },
+  list: { paddingHorizontal: 16, paddingBottom: 120 },
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',

@@ -13,94 +13,180 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 
+type FieldKey = 'firstName' | 'lastName' | 'email' | 'phone';
+
+const FIELD_CONFIG: Record<FieldKey, {
+  title: string;
+  label: string;
+  placeholder: string;
+  keyboardType?: 'default' | 'email-address' | 'phone-pad';
+  autoCapitalize?: 'none' | 'words' | 'sentences';
+  autoCorrect?: boolean;
+}> = {
+  firstName: {
+    title: 'Prénom',
+    label: 'Prénom',
+    placeholder: 'Votre prénom',
+    autoCapitalize: 'words',
+  },
+  lastName: {
+    title: 'Nom',
+    label: 'Nom',
+    placeholder: 'Votre nom',
+    autoCapitalize: 'words',
+  },
+  email: {
+    title: 'Email',
+    label: 'Adresse email',
+    placeholder: 'votre@email.com',
+    keyboardType: 'email-address',
+    autoCapitalize: 'none',
+    autoCorrect: false,
+  },
+  phone: {
+    title: 'Téléphone',
+    label: 'Numéro de téléphone',
+    placeholder: '06 12 34 56 78',
+    keyboardType: 'phone-pad',
+  },
+};
+
 export default function EditProfilePage() {
   const { user } = useAppStore();
   const queryClient = useQueryClient();
+  const params = useLocalSearchParams<{ field?: string }>();
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState(user?.email ?? '');
-  const [phone, setPhone] = useState('');
+  // Field demandé via query param. Fallback sur firstName si absent/invalide.
+  const fieldKey: FieldKey =
+    params.field && (params.field in FIELD_CONFIG)
+      ? (params.field as FieldKey)
+      : 'firstName';
+  const config = FIELD_CONFIG[fieldKey];
+
+  const [value, setValue] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Load current profile data
+  // Charge la valeur actuelle du champ
   useEffect(() => {
     if (!user?.id) {
       setLoading(false);
       return;
     }
+
+    if (fieldKey === 'email') {
+      setValue(user.email ?? '');
+      setLoading(false);
+      return;
+    }
+
     supabase
       .from('profiles')
-      .select('full_name, phone, email')
+      .select('full_name, phone')
       .eq('id', user.id)
       .single()
       .then(({ data }) => {
         if (data) {
-          // Split full_name into first/last for the form
-          const parts = (data.full_name ?? '').trim().split(/\s+/);
-          setFirstName(parts[0] ?? '');
-          setLastName(parts.slice(1).join(' '));
-          setPhone(data.phone ?? '');
-          if (data.email) setEmail(data.email);
+          if (fieldKey === 'firstName') {
+            const parts = (data.full_name ?? '').trim().split(/\s+/);
+            setValue(parts[0] ?? '');
+          } else if (fieldKey === 'lastName') {
+            const parts = (data.full_name ?? '').trim().split(/\s+/);
+            setValue(parts.slice(1).join(' '));
+          } else if (fieldKey === 'phone') {
+            setValue(data.phone ?? '');
+          }
         }
         setLoading(false);
       });
-  }, [user?.id]);
+  }, [user?.id, fieldKey]);
 
   const handleSave = async () => {
+    if (!user?.id) {
+      Alert.alert('Non connecté', 'Vous devez être connecté pour modifier votre profil.');
+      return;
+    }
+
+    const trimmed = value.trim();
     setSaving(true);
 
-    if (!user?.id) {
-      // Not authenticated — show success and go back (demo mode)
-      setSaving(false);
-      Alert.alert('Profil enregistré', 'Vos modifications ont été sauvegardées.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
-      return;
-    }
-
-    // Update email via Supabase Auth if changed
-    const newEmail = email.trim();
-    if (newEmail && newEmail !== user.email) {
-      const { error: authError } = await supabase.auth.updateUser({ email: newEmail });
-      if (authError) {
+    try {
+      if (fieldKey === 'email') {
+        if (!trimmed) {
+          Alert.alert('Email requis', 'Veuillez saisir une adresse email.');
+          setSaving(false);
+          return;
+        }
+        if (trimmed === user.email) {
+          // Aucun changement
+          router.back();
+          setSaving(false);
+          return;
+        }
+        const { error } = await supabase.auth.updateUser({ email: trimmed });
+        if (error) {
+          Alert.alert('Erreur', error.message);
+          setSaving(false);
+          return;
+        }
+        Alert.alert(
+          'Email mis à jour',
+          'Un email de confirmation a été envoyé à votre nouvelle adresse.',
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
         setSaving(false);
-        Alert.alert('Erreur', authError.message);
         return;
       }
+
+      if (fieldKey === 'phone') {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ phone: trimmed || null })
+          .eq('id', user.id);
+        if (error) {
+          Alert.alert('Erreur', 'Impossible de mettre à jour le téléphone.');
+          setSaving(false);
+          return;
+        }
+      } else {
+        // firstName ou lastName : on recompose le full_name
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+
+        const currentParts = (profile?.full_name ?? '').trim().split(/\s+/).filter(Boolean);
+        let newFirstName = currentParts[0] ?? '';
+        let newLastName = currentParts.slice(1).join(' ');
+
+        if (fieldKey === 'firstName') newFirstName = trimmed;
+        else newLastName = trimmed;
+
+        const fullName = [newFirstName, newLastName].filter(Boolean).join(' ').trim();
+
+        const { error } = await supabase
+          .from('profiles')
+          .update({ full_name: fullName || null })
+          .eq('id', user.id);
+        if (error) {
+          Alert.alert('Erreur', 'Impossible de mettre à jour votre profil.');
+          setSaving(false);
+          return;
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
+      router.back();
+    } finally {
+      setSaving(false);
     }
-
-    const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        full_name: fullName || null,
-        phone: phone.trim() || null,
-      })
-      .eq('id', user.id);
-
-    setSaving(false);
-
-    if (error) {
-      Alert.alert('Erreur', 'Impossible de mettre à jour votre profil.');
-      return;
-    }
-
-    // Refresh profile data in cache
-    queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
-
-    if (newEmail && newEmail !== user.email) {
-      Alert.alert('Email mis à jour', 'Un email de confirmation a été envoyé à votre nouvelle adresse.');
-    }
-
-    router.back();
   };
 
   if (loading) {
@@ -125,7 +211,7 @@ export default function EditProfilePage() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={24} color="#3744C8" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Modifier le profil</Text>
+          <Text style={styles.headerTitle}>{config.title}</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -133,62 +219,25 @@ export default function EditProfilePage() {
           showsVerticalScrollIndicator={false}
           style={{ backgroundColor: '#ECEEF4' }}
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
-          {/* Prénom */}
           <View style={styles.field}>
-            <Text style={styles.label}>Prénom</Text>
+            <Text style={styles.label}>{config.label}</Text>
             <TextInput
               style={styles.input}
-              value={firstName}
-              onChangeText={setFirstName}
-              placeholder="Votre prénom"
+              value={value}
+              onChangeText={setValue}
+              placeholder={config.placeholder}
               placeholderTextColor="#9CA3AF"
-              autoCapitalize="words"
+              keyboardType={config.keyboardType ?? 'default'}
+              autoCapitalize={config.autoCapitalize ?? 'sentences'}
+              autoCorrect={config.autoCorrect ?? true}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleSave}
             />
           </View>
 
-          {/* Nom */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Nom</Text>
-            <TextInput
-              style={styles.input}
-              value={lastName}
-              onChangeText={setLastName}
-              placeholder="Votre nom"
-              placeholderTextColor="#9CA3AF"
-              autoCapitalize="words"
-            />
-          </View>
-
-          {/* Email */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="votre@email.com"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          {/* Téléphone */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Téléphone</Text>
-            <TextInput
-              style={styles.input}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="06 12 34 56 78"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          {/* Save */}
           <TouchableOpacity
             style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
             onPress={handleSave}

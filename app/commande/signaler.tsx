@@ -7,11 +7,13 @@ import {
   TextInput,
   StyleSheet,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '@/lib/supabase';
 
 export default function SignalerPage() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -19,13 +21,27 @@ export default function SignalerPage() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setSending(true);
-    // Simulate API call — will be replaced with real endpoint
-    setTimeout(() => {
-      setSending(false);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Non connecté');
+
+      const { error } = await supabase.from('support_tickets').insert({
+        user_id: user.id,
+        subject: 'Commerce fermé',
+        message: `Signalement commerce fermé pour la commande ${orderId}.\n${comment ? `Commentaire : ${comment}` : ''}`,
+        category: 'order',
+        order_id: orderId,
+      });
+
+      if (error) throw error;
       setSent(true);
-    }, 1500);
+    } catch (err) {
+      Alert.alert('Erreur', 'Impossible d\'envoyer le signalement. Veuillez réessayer.');
+    } finally {
+      setSending(false);
+    }
   };
 
   if (sent) {

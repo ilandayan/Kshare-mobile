@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "652675570450",
-    "project_id": "kshare-f3f39",
-    "storage_bucket": "kshare-f3f39.firebasestorage.app"
+    "project_number": "643508682404",
+    "project_id": "kshare-android",
+    "storage_bucket": "kshare-android.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:652675570450:android:e98db79a5e6f594b6531cb",
+        "mobilesdk_app_id": "1:643508682404:android:d051df1db3c782184ff031",
         "android_client_info": {
-          "package_name": "com.kshare.app"
+          "package_name": "app.kshare.fr"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCUkUxYS07zHwjkaZtcs5Ueq4579C3dWgY"
+          "current_key": "AIzaSyAzRNG2VJ2RjVCIzTqEPLQ_hb32y7GWbfQ"
         }
       ],
       "services": {

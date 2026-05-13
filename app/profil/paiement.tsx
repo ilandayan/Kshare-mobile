@@ -17,7 +17,6 @@ import { Ionicons } from '@expo/vector-icons';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-// Mock saved cards — replace with real Stripe data later
 interface SavedCard {
   id: string;
   brand: string;
@@ -27,16 +26,8 @@ interface SavedCard {
   isDefault: boolean;
 }
 
-const MOCK_CARDS: SavedCard[] = [
-  {
-    id: 'pm_1',
-    brand: 'visa',
-    last4: '4242',
-    expMonth: 12,
-    expYear: 2027,
-    isDefault: true,
-  },
-];
+// No mock data — cards are managed by Stripe Checkout during purchases
+const INITIAL_CARDS: SavedCard[] = [];
 
 function getCardIcon(brand: string): IoniconName {
   switch (brand.toLowerCase()) {
@@ -65,7 +56,7 @@ const BRANDS = ['visa', 'mastercard'] as const;
 let nextCardId = 2;
 
 export default function PaiementPage() {
-  const [cards, setCards] = useState<SavedCard[]>(MOCK_CARDS);
+  const [cards, setCards] = useState<SavedCard[]>(INITIAL_CARDS);
   const [applePayEnabled, setApplePayEnabled] = useState(false);
   const [googlePayEnabled, setGooglePayEnabled] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);

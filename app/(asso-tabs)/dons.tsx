@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 26, fontWeight: '800', color: '#111827' },
   subtitle: { fontSize: 14, color: '#6B7280', marginTop: 4 },
 
-  list: { paddingHorizontal: 16, paddingBottom: 24 },
+  list: { paddingHorizontal: 16, paddingBottom: 120 },
 
   card: {
     backgroundColor: '#fff',

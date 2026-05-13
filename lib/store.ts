@@ -28,7 +28,16 @@ interface FavoritesState {
   isFavorite: (commerceId: string) => boolean;
 }
 
-interface AppStore extends AuthState, FavoritesState {}
+/**
+ * Position de l'utilisateur, partagée entre les onglets (home + carte).
+ * Source: GPS au lancement OU code postal saisi manuellement.
+ */
+interface UserLocationState {
+  userLocation: { lat: number; lng: number; cityName: string | null } | null;
+  setUserLocation: (loc: { lat: number; lng: number; cityName: string | null } | null) => void;
+}
+
+interface AppStore extends AuthState, FavoritesState, UserLocationState {}
 
 export const useAppStore = create<AppStore>((set, get) => ({
   // Auth state
@@ -124,5 +133,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   isFavorite: (commerceId: string) => {
     return get().favorites.includes(commerceId);
+  },
+
+  // Position utilisateur partagée
+  userLocation: null,
+  setUserLocation: (loc) => {
+    set({ userLocation: loc });
   },
 }));

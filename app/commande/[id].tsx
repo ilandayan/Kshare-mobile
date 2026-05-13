@@ -295,7 +295,7 @@ export default function CommandePage() {
             {typeInfo && (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Type de panier</Text>
-                <BasketTypeBadge type={order.baskets!.type} size="sm" />
+                <BasketTypeBadge type={order.baskets?.type ?? 'parve'} size="sm" />
               </View>
             )}
 

@@ -9,7 +9,6 @@ import {
   SafeAreaFrameContext,
 } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import * as Sentry from '@sentry/react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import { StripeWrapper } from '@/components/StripeWrapper';
@@ -17,8 +16,11 @@ import { DeviceFrame } from '@/components/DeviceFrame';
 import { usePushNotifications } from '@/lib/usePushNotifications';
 import { getMixpanel } from '@/lib/mixpanel';
 
-// Initialize Sentry (wrapped in try-catch to prevent crash on launch)
+// Sentry is lazy-loaded via dynamic require to prevent crash on iPad
+// if the native module has compatibility issues at launch.
+let Sentry: any = null;
 try {
+  Sentry = require('@sentry/react-native');
   const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
   if (sentryDsn) {
     Sentry.init({
@@ -30,7 +32,8 @@ try {
     });
   }
 } catch {
-  // Sentry init failed — app continues without crash reporting
+  // Sentry load/init failed — app continues without crash reporting
+  Sentry = null;
 }
 
 // On web inside DeviceFrame, force iPhone 16 Pro safe area insets.
@@ -196,7 +199,7 @@ function RootLayout() {
 // Wrap with Sentry safely — if Sentry native module isn't linked, fall back to unwrapped
 let ExportedLayout: React.ComponentType;
 try {
-  ExportedLayout = Sentry.wrap(RootLayout);
+  ExportedLayout = Sentry?.wrap ? Sentry.wrap(RootLayout) : RootLayout;
 } catch {
   ExportedLayout = RootLayout;
 }

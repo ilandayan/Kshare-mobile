@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#ECEEF4',
   },
-  content: { paddingBottom: 40 },
+  content: { paddingBottom: 120 },
 
   avatarSection: { alignItems: 'center', paddingTop: 32, paddingBottom: 24 },
   avatar: {
