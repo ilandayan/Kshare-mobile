@@ -18,6 +18,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
+import { openExternalUrl } from '@/lib/linking';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -164,13 +165,13 @@ export default function SupportPage() {
       icon: 'help-circle-outline' as IoniconName,
       label: 'FAQ',
       subtitle: 'Questions fréquentes',
-      onPress: () => Linking.openURL('https://k-share.fr/faq'),
+      onPress: () => openExternalUrl('https://k-share.fr/faq'),
     },
     {
       icon: 'document-text-outline' as IoniconName,
       label: "Conditions d'utilisation",
       subtitle: 'CGU et politique de confidentialité',
-      onPress: () => Linking.openURL('https://k-share.fr/cgu'),
+      onPress: () => openExternalUrl('https://k-share.fr/cgu'),
     },
   ];
 
@@ -387,7 +388,7 @@ export default function SupportPage() {
               {/* Direct email fallback */}
               <TouchableOpacity
                 style={styles.emailFallback}
-                onPress={() => Linking.openURL('mailto:contact@k-share.fr')}
+                onPress={() => openExternalUrl('mailto:contact@k-share.fr')}
               >
                 <Ionicons name="mail-outline" size={14} color="#9CA3AF" />
                 <Text style={styles.emailFallbackText}>

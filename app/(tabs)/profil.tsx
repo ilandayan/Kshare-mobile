@@ -22,6 +22,7 @@ import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { UserProfile } from '@/lib/types';
+import { openExternalUrl } from '@/lib/linking';
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 async function fetchProfile(userId: string): Promise<(UserProfile & { notif_push?: boolean }) | null> {
@@ -300,12 +301,12 @@ export default function ProfilPage() {
           <ProfileRow
             icon="storefront-outline"
             label="Devenir partenaire"
-            onPress={() => Linking.openURL('https://k-share.fr')}
+            onPress={() => openExternalUrl('https://k-share.fr')}
           />
           <ProfileRow
             icon="share-social-outline"
             label="Recommander un commerce"
-            onPress={() => Linking.openURL('mailto:contact@k-share.fr?subject=Recommandation%20commerce')}
+            onPress={() => openExternalUrl('mailto:contact@k-share.fr?subject=Recommandation%20commerce')}
           />
           <ProfileRow
             icon="help-circle-outline"
@@ -315,12 +316,12 @@ export default function ProfilPage() {
           <ProfileRow
             icon="document-text-outline"
             label="Conditions d'utilisation"
-            onPress={() => Linking.openURL('https://k-share.fr/cgu')}
+            onPress={() => openExternalUrl('https://k-share.fr/cgu')}
           />
           <ProfileRow
             icon="shield-checkmark-outline"
             label="Politique de confidentialité"
-            onPress={() => Linking.openURL('https://k-share.fr/confidentialite')}
+            onPress={() => openExternalUrl('https://k-share.fr/confidentialite')}
             last
           />
         </View>

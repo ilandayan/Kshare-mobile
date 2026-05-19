@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import { SwipeConfirmButton } from '@/components/SwipeConfirmButton';
 import { RatingModal } from '@/components/RatingModal';
+import { openExternalUrl } from '@/lib/linking';
 import { BasketTypeBadge } from '@/components/BasketTypeBadge';
 import { BASKET_TYPE_LABELS, type Order } from '@/lib/types';
 import { isMockOrderId } from '@/lib/mockOrders';
@@ -136,12 +137,12 @@ export default function CommandePage() {
     const appleMapsUrl = `maps:?q=${encodedAddress}`;
 
     if (Platform.OS === 'web') {
-      Linking.openURL(googleMapsUrl);
+      openExternalUrl(googleMapsUrl);
       return;
     }
 
     if (Platform.OS === 'android') {
-      Linking.openURL(googleMapsUrl);
+      openExternalUrl(googleMapsUrl);
       return;
     }
 
@@ -150,9 +151,9 @@ export default function CommandePage() {
       'Ouvrir avec',
       'Choisissez votre application GPS',
       [
-        { text: 'Plans Apple', onPress: () => Linking.openURL(appleMapsUrl) },
-        { text: 'Waze', onPress: () => Linking.openURL(wazeUrl) },
-        { text: 'Google Maps', onPress: () => Linking.openURL(googleMapsUrl) },
+        { text: 'Plans Apple', onPress: () => openExternalUrl(appleMapsUrl) },
+        { text: 'Waze', onPress: () => openExternalUrl(wazeUrl) },
+        { text: 'Google Maps', onPress: () => openExternalUrl(googleMapsUrl) },
         { text: 'Annuler', style: 'cancel' },
       ],
     );
