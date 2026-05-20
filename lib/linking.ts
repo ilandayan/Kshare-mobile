@@ -26,13 +26,6 @@ function showFallback(url: string): void {
       `Aucune application de messagerie n'est configurée sur cet appareil.\n\nÉcrivez-nous à :\n${email}`,
       [{ text: 'OK' }],
     );
-  } else if (url.startsWith('tel:')) {
-    const tel = url.replace(/^tel:/, '');
-    Alert.alert(
-      'Aucune application téléphone',
-      `Numéro à composer :\n${tel}`,
-      [{ text: 'OK' }],
-    );
   } else {
     Alert.alert("Impossible d'ouvrir le lien", url, [{ text: 'OK' }]);
   }
