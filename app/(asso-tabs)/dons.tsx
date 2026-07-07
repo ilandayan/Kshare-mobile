@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -100,23 +101,16 @@ async function fetchDonBaskets(department: string): Promise<DonBasket[]> {
 }
 
 // ── Reserve action ───────────────────────────────────────────────
-async function reserveDonBasket(basketId: string, assoId: string, userId: string) {
-  // Create a donation order assigned to this association
-  const { error } = await supabase.from('orders').insert({
-    basket_id: basketId,
-    user_id: userId,
-    association_id: assoId,
-    is_donation: true,
-    status: 'paid', // donation = no payment needed, goes straight to confirmed
-    amount_paid: 0,
-  });
-  if (error) throw error;
-
-  // Update basket reserved count
-  await supabase.rpc('update_basket_quantity', {
+async function reserveDonBasket(basketId: string) {
+  // Réservation atomique côté serveur : la RPC vérifie le rôle asso, verrouille
+  // le panier, contrôle le stock, incrémente quantity_reserved et crée la
+  // commande. Empêche la race « dernier panier réservé 2x » et interdit tout
+  // insert de commande forgée depuis le client.
+  const { error } = await supabase.rpc('reserve_donation', {
     p_basket_id: basketId,
-    p_delta: 1,
+    p_quantity: 1,
   });
+  if (error) throw new Error(error.message || 'Réservation impossible.');
 }
 
 // ── Component ────────────────────────────────────────────────────
@@ -150,10 +144,15 @@ export default function DonsScreen() {
 
   const reserveMutation = useMutation({
     mutationFn: ({ basketId }: { basketId: string }) =>
-      reserveDonBasket(basketId, assoId!, user!.id),
+      reserveDonBasket(basketId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['don-baskets'] });
       queryClient.invalidateQueries({ queryKey: ['asso-reservations'] });
+      Alert.alert('Réservé', 'Le panier a bien été réservé pour votre association.');
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : 'Réservation impossible.';
+      Alert.alert('Erreur', msg);
     },
   });
 

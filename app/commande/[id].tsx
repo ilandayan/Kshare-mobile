@@ -104,6 +104,9 @@ export default function CommandePage() {
     refetchInterval: pickupConfirmed ? false : 10000,
   });
 
+  // La réception est confirmée par le CLIENT, en magasin devant le commerçant.
+  // Côté serveur, la commande ne peut passer QUE paid/ready_for_pickup -> picked_up
+  // et aucun champ financier n'est modifiable (RLS + trigger).
   const handleConfirmPickup = async () => {
     if (!order) return;
     const { error } = await supabase
@@ -115,7 +118,7 @@ export default function CommandePage() {
       .eq('id', order.id);
 
     if (error) {
-      Alert.alert('Erreur', 'Impossible de confirmer le retrait.');
+      Alert.alert('Erreur', 'Impossible de confirmer la réception.');
       throw error;
     }
 
@@ -177,7 +180,11 @@ export default function CommandePage() {
 
   const isMock = isMockOrderId(id);
   const typeInfo = order.baskets?.type ? BASKET_TYPE_LABELS[order.baskets.type] : null;
-  const statusInfo = STATUS_INFO[order.status];
+  const statusInfo = STATUS_INFO[order.status] ?? {
+    label: order.status,
+    color: '#6B7280',
+    icon: 'help-circle-outline' as const,
+  };
   // Build pickup date/time from order fields (pickup_date = "2026-03-17", pickup_start/end = "17:00:00")
   const pickupDateStr = order.pickup_date ?? '';
   const pickupStartTime = order.pickup_start ?? order.baskets?.pickup_start ?? '';
@@ -224,14 +231,14 @@ export default function CommandePage() {
             <Text style={styles.qrSubtitle}>
               {isMock
                 ? 'Aperçu démo — le QR code sera fonctionnel avec une vraie commande'
-                : 'Présentez ce QR code au commerçant puis glissez pour confirmer'}
+                : 'Présentez ce QR code au commerçant, puis glissez pour confirmer votre réception devant lui.'}
             </Text>
             <QRCodeDisplay
               value={qrValue}
               size={200}
               label={order.qr_code_token ?? undefined}
             />
-            {order.status === 'ready_for_pickup' && (
+            {(order.status === 'ready_for_pickup' || order.status === 'paid') && (
               <>
                 <View style={styles.swipeContainer}>
                   <SwipeConfirmButton onConfirm={handleConfirmPickup} />

@@ -89,17 +89,23 @@ async function savePushToken(token: string): Promise<void> {
  * Call this in the main app layout once the user is authenticated.
  */
 export function usePushNotifications() {
-  const notificationListener = useRef<Notifications.EventSubscription>();
-  const responseListener = useRef<Notifications.EventSubscription>();
+  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const session = useAppStore((s) => s.session);
 
+  // Demander la permission notifications UNIQUEMENT après connexion (in-context),
+  // et non au cold start sur le splash/login. Évite le rejet App Store et le
+  // taux de refus élevé lié à une demande hors contexte.
   useEffect(() => {
-    // Register and save token
+    if (!session) return;
     registerForPushNotifications().then((token) => {
       if (token) {
         savePushToken(token);
       }
     });
+  }, [session]);
 
+  useEffect(() => {
     // Listen for incoming notifications (foreground)
     notificationListener.current = Notifications.addNotificationReceivedListener(
       (notification) => {
@@ -129,12 +135,8 @@ export function usePushNotifications() {
     );
 
     return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
     };
   }, []);
 }
