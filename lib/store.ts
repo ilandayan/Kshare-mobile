@@ -66,7 +66,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     trackEvent(MixpanelEvents.LOGOUT);
     resetMixpanel();
     await supabase.auth.signOut();
-    set({ user: null, session: null, userRole: null, favorites: [] });
+    set({ user: null, session: null, userRole: null, favorites: [], userLocation: null });
     router.replace('/(auth)/connexion');
   },
 

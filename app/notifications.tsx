@@ -64,7 +64,7 @@ export default function NotificationsPage() {
       supabase
         .from('favorites')
         .select('commerce_id')
-        .eq('user_id', user.id)
+        .eq('client_id', user.id)
         .then(({ data }) => {
           if (data) {
             setFavorites(data.map((f) => f.commerce_id));

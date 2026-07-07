@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
-import { SwipeConfirmButton } from '@/components/SwipeConfirmButton';
 import { RatingModal } from '@/components/RatingModal';
 import { openExternalUrl } from '@/lib/linking';
 import { BasketTypeBadge } from '@/components/BasketTypeBadge';
@@ -104,26 +103,15 @@ export default function CommandePage() {
     refetchInterval: pickupConfirmed ? false : 10000,
   });
 
-  const handleConfirmPickup = async () => {
-    if (!order) return;
-    const { error } = await supabase
-      .from('orders')
-      .update({
-        status: 'picked_up',
-        picked_up_at: new Date().toISOString(),
-      })
-      .eq('id', order.id);
-
-    if (error) {
-      Alert.alert('Erreur', 'Impossible de confirmer le retrait.');
-      throw error;
+  // Le retrait est confirmé par le COMMERCE (scan en magasin), pas par le client.
+  // Dès que le polling détecte le passage en `picked_up`, on propose la notation.
+  useEffect(() => {
+    if (order?.status === 'picked_up' && !pickupConfirmed) {
+      setPickupConfirmed(true);
+      setShowRating(true);
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     }
-
-    setPickupConfirmed(true);
-    setShowRating(true);
-    queryClient.invalidateQueries({ queryKey: ['order', id] });
-    queryClient.invalidateQueries({ queryKey: ['orders'] });
-  };
+  }, [order?.status, pickupConfirmed, queryClient]);
 
   const handleOpenMaps = () => {
     if (!order?.baskets?.commerces) return;
@@ -177,7 +165,11 @@ export default function CommandePage() {
 
   const isMock = isMockOrderId(id);
   const typeInfo = order.baskets?.type ? BASKET_TYPE_LABELS[order.baskets.type] : null;
-  const statusInfo = STATUS_INFO[order.status];
+  const statusInfo = STATUS_INFO[order.status] ?? {
+    label: order.status,
+    color: '#6B7280',
+    icon: 'help-circle-outline' as const,
+  };
   // Build pickup date/time from order fields (pickup_date = "2026-03-17", pickup_start/end = "17:00:00")
   const pickupDateStr = order.pickup_date ?? '';
   const pickupStartTime = order.pickup_start ?? order.baskets?.pickup_start ?? '';
@@ -224,17 +216,20 @@ export default function CommandePage() {
             <Text style={styles.qrSubtitle}>
               {isMock
                 ? 'Aperçu démo — le QR code sera fonctionnel avec une vraie commande'
-                : 'Présentez ce QR code au commerçant puis glissez pour confirmer'}
+                : 'Présentez ce QR code au commerçant. Il validera le retrait de son côté.'}
             </Text>
             <QRCodeDisplay
               value={qrValue}
               size={200}
               label={order.qr_code_token ?? undefined}
             />
-            {order.status === 'ready_for_pickup' && (
+            {(order.status === 'ready_for_pickup' || order.status === 'paid') && (
               <>
-                <View style={styles.swipeContainer}>
-                  <SwipeConfirmButton onConfirm={handleConfirmPickup} />
+                <View style={styles.awaitingBox}>
+                  <Ionicons name="hourglass-outline" size={18} color="#2563EB" />
+                  <Text style={styles.awaitingText}>
+                    En attente de validation du commerçant lors de votre passage.
+                  </Text>
                 </View>
                 <TouchableOpacity
                   style={styles.helpBtn}
@@ -603,6 +598,25 @@ const styles = StyleSheet.create({
   swipeContainer: {
     width: '100%',
     marginTop: 8,
+  },
+  awaitingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 12,
+    width: '100%',
+  },
+  awaitingText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#1D4ED8',
+    fontWeight: '500',
   },
   helpBtn: {
     flexDirection: 'row',

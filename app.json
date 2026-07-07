@@ -43,7 +43,7 @@
           }
         ]
       },
-      "buildNumber": "11",
+      "buildNumber": "12",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleLocalizations": [
@@ -56,8 +56,7 @@
           "comgooglemaps",
           "maps"
         ],
-        "NSCameraUsageDescription": "Kshare utilise la caméra pour scanner le QR code de vos commandes lors du retrait en magasin.",
-        "NSPhotoLibraryUsageDescription": "Kshare accède à vos photos pour personnaliser votre profil et joindre des pièces justificatives à vos demandes support."
+        "NSCameraUsageDescription": "Kshare utilise la caméra pour scanner le QR code de vos commandes lors du retrait en magasin."
       }
     },
     "android": {
