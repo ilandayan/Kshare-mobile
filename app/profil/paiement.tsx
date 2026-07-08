@@ -7,8 +7,6 @@ import {
   StyleSheet,
   Alert,
   Platform,
-  Switch,
-  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -51,14 +49,8 @@ function getCardColor(brand: string): string {
   }
 }
 
-// Generate random last4 for new mock cards
-const BRANDS = ['visa', 'mastercard'] as const;
-let nextCardId = 2;
-
 export default function PaiementPage() {
   const [cards, setCards] = useState<SavedCard[]>(INITIAL_CARDS);
-  const [applePayEnabled, setApplePayEnabled] = useState(false);
-  const [googlePayEnabled, setGooglePayEnabled] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const isIOS = Platform.OS === 'ios';
@@ -90,14 +82,6 @@ export default function PaiementPage() {
     setCards((prev) =>
       prev.map((c) => ({ ...c, isDefault: c.id === card.id })),
     );
-  };
-
-  const handleToggleApplePay = (value: boolean) => {
-    setApplePayEnabled(value);
-  };
-
-  const handleToggleGooglePay = (value: boolean) => {
-    setGooglePayEnabled(value);
   };
 
   return (
@@ -197,47 +181,17 @@ export default function PaiementPage() {
         {/* Section: Paiement mobile */}
         <Text style={styles.sectionLabel}>PAIEMENT MOBILE</Text>
         <View style={styles.card}>
-          {isIOS && (
-            <View style={styles.walletRow}>
-              <View style={[styles.walletIconWrap, { backgroundColor: '#000' }]}>
-                <Ionicons name="logo-apple" size={20} color="#fff" />
-              </View>
-              <View style={styles.walletContent}>
-                <Text style={styles.walletTitle}>Apple Pay</Text>
-                <Text style={styles.walletSubtitle}>
-                  {applePayEnabled ? 'Activé — paiement en un tap' : 'Payez rapidement avec Face ID'}
-                </Text>
-              </View>
-              <Switch
-                value={applePayEnabled}
-                onValueChange={handleToggleApplePay}
-                trackColor={{ false: '#D1D5DB', true: '#111827' }}
-                thumbColor={undefined}
-                ios_backgroundColor="#D1D5DB"
-              />
+          <View style={styles.walletRow}>
+            <View style={[styles.walletIconWrap, { backgroundColor: isIOS ? '#000' : '#4285F4' }]}>
+              <Ionicons name={isIOS ? 'logo-apple' : 'logo-google'} size={isIOS ? 20 : 18} color="#fff" />
             </View>
-          )}
-
-          {!isIOS && (
-            <View style={styles.walletRow}>
-              <View style={[styles.walletIconWrap, { backgroundColor: '#4285F4' }]}>
-                <Ionicons name="logo-google" size={18} color="#fff" />
-              </View>
-              <View style={styles.walletContent}>
-                <Text style={styles.walletTitle}>Google Pay</Text>
-                <Text style={styles.walletSubtitle}>
-                  {googlePayEnabled ? 'Activé — paiement en un tap' : 'Payez rapidement et en toute sécurité'}
-                </Text>
-              </View>
-              <Switch
-                value={googlePayEnabled}
-                onValueChange={handleToggleGooglePay}
-                trackColor={{ false: '#D1D5DB', true: '#4285F4' }}
-                thumbColor="#fff"
-                ios_backgroundColor="#D1D5DB"
-              />
+            <View style={styles.walletContent}>
+              <Text style={styles.walletTitle}>{isIOS ? 'Apple Pay' : 'Google Pay'}</Text>
+              <Text style={styles.walletSubtitle}>
+                Proposé automatiquement lors du paiement, si votre appareil le prend en charge.
+              </Text>
             </View>
-          )}
+          </View>
         </View>
 
         {/* Section: Sécurité */}
