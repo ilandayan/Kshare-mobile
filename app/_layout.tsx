@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Platform, TouchableOpacity, View } from 'react-native';
+import { Platform, TouchableOpacity, View, Linking } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -105,6 +105,36 @@ function RootLayoutInner() {
 
     return () => subscription.unsubscribe();
   }, [setSession, setLoading, setUserRole]);
+
+  // Deep link de réinitialisation de mot de passe (kshare://reset-password#...).
+  // Supabase renvoie les tokens dans le fragment de l'URL : on ouvre la session
+  // de récupération et on route vers l'écran de définition du nouveau mot de passe.
+  useEffect(() => {
+    const handleUrl = async (url: string | null) => {
+      if (!url || !url.includes('reset-password')) return;
+      const fragment = url.split('#')[1] ?? url.split('?')[1] ?? '';
+      const params: Record<string, string> = {};
+      fragment.split('&').forEach((kv) => {
+        const [k, v] = kv.split('=');
+        if (k) params[decodeURIComponent(k)] = decodeURIComponent(v ?? '');
+      });
+      if (params.type === 'recovery' && params.access_token) {
+        try {
+          await supabase.auth.setSession({
+            access_token: params.access_token,
+            refresh_token: params.refresh_token ?? '',
+          });
+        } catch {
+          // session invalide/expirée — l'écran affichera une erreur au submit
+        }
+        router.replace('/(auth)/reset-password');
+      }
+    };
+
+    Linking.getInitialURL().then(handleUrl);
+    const sub = Linking.addEventListener('url', (e) => handleUrl(e.url));
+    return () => sub.remove();
+  }, []);
 
   const appContent = (
     <View style={{ flex: 1, backgroundColor: '#ECEEF4' }}>

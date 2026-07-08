@@ -42,8 +42,10 @@ export default function MotDePasseOubliePage() {
     setIsLoading(true);
 
     try {
+      // Deep link vers l'app (scheme déclaré dans app.json). Le lien reçu par
+      // email ouvre directement l'écran de réinitialisation in-app.
       const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
-        redirectTo: 'https://k-share.fr/auth/reset-password',
+        redirectTo: 'kshare://reset-password',
       });
 
       if (error) {
