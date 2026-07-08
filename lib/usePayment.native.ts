@@ -45,9 +45,15 @@ export function usePayment() {
       defaultBillingDetails: {
         email: options.userEmail,
       },
-      // Google Pay (Apple Pay requires merchant ID from Apple Developer account)
+      // Apple Pay (iOS) — merchantIdentifier configuré via le plugin Stripe
+      // dans app.json + StripeProvider (merchant.fr.kshare.app).
+      applePay: {
+        merchantCountryCode: 'FR',
+      },
+      // Google Pay (Android) — enableGooglePay via le plugin Stripe dans app.json.
       googlePay: {
         merchantCountryCode: 'FR',
+        currencyCode: 'EUR',
         testEnv: __DEV__,
       },
       // Required for redirect-based payment methods
@@ -77,17 +83,9 @@ export function usePayment() {
       return { success: false };
     }
 
-    // Payment succeeded — update order status to 'paid'
-    try {
-      await supabase
-        .from('orders')
-        .update({ status: 'paid' })
-        .eq('id', paymentData.orderId);
-    } catch (updateErr) {
-      // Non-blocking: webhook will also update the status server-side
-      // Non-critical: webhook handles status update server-side
-    }
-
+    // Paiement réussi. Le passage en 'paid' est fait côté serveur par le
+    // webhook Stripe (payment_intent.succeeded) — le client n'a pas le droit
+    // de modifier ce statut (RLS + trigger), et n'en a pas besoin.
     return { success: true, orderId: paymentData.orderId };
   };
 
