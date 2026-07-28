@@ -39,10 +39,30 @@ export default function ResetPasswordPage() {
       // Nécessite une session de récupération ouverte via le deep link.
       const { error } = await supabase.auth.updateUser({ password });
       if (error) {
-        Alert.alert(
-          'Lien expiré',
-          "Ce lien de réinitialisation n'est plus valide. Redemandez-en un.",
-        );
+        // Distinguer les causes : annoncer "lien expiré" alors que
+        // l'utilisateur a simplement réutilisé son ancien mot de passe
+        // l'envoie corriger le mauvais problème.
+        const code = (error as { code?: string }).code ?? '';
+        const raw = (error.message ?? '').toLowerCase();
+
+        if (code === 'same_password' || raw.includes('different from the old password')) {
+          Alert.alert(
+            'Mot de passe identique',
+            "Le nouveau mot de passe doit être différent de l'ancien mot de passe.",
+          );
+        } else if (code === 'weak_password' || raw.includes('weak') || raw.includes('at least')) {
+          Alert.alert(
+            'Mot de passe trop faible',
+            'Utilisez au moins 8 caractères, avec des lettres et des chiffres.',
+          );
+        } else if (raw.includes('session') || raw.includes('token') || raw.includes('expired')) {
+          Alert.alert(
+            'Lien expiré',
+            "Ce lien de réinitialisation n'est plus valide. Redemandez-en un.",
+          );
+        } else {
+          Alert.alert('Erreur', error.message ?? 'Une erreur est survenue. Veuillez réessayer.');
+        }
         return;
       }
       Alert.alert('Mot de passe modifié', 'Vous pouvez maintenant vous connecter.', [
@@ -68,7 +88,9 @@ export default function ResetPasswordPage() {
               <Ionicons name="key-outline" size={32} color={BRAND} />
             </View>
             <Text style={styles.headerTitle}>Nouveau mot de passe</Text>
-            <Text style={styles.headerSubtitle}>Choisissez un mot de passe sécurisé</Text>
+            <Text style={styles.headerSubtitle}>
+              Choisissez un mot de passe sécurisé, différent de l&apos;ancien
+            </Text>
           </View>
 
           <View style={styles.card}>
@@ -80,7 +102,7 @@ export default function ResetPasswordPage() {
                   style={styles.input}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="Au moins 8 caractères"
+                  placeholder="8 caractères min., différent de l'ancien"
                   placeholderTextColor="#b0b5c0"
                   secureTextEntry={!show}
                   autoCapitalize="none"
