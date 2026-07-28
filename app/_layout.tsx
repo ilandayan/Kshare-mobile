@@ -112,23 +112,40 @@ function RootLayoutInner() {
   useEffect(() => {
     const handleUrl = async (url: string | null) => {
       if (!url || !url.includes('reset-password')) return;
-      const fragment = url.split('#')[1] ?? url.split('?')[1] ?? '';
+
+      // Supabase transmet le jeton de récupération sous plusieurs formes selon
+      // la configuration : ?token_hash=xxx&type=recovery, ?code=xxx (PKCE) ou
+      // #access_token=xxx (implicite). On lit query ET fragment.
       const params: Record<string, string> = {};
-      fragment.split('&').forEach((kv) => {
-        const [k, v] = kv.split('=');
-        if (k) params[decodeURIComponent(k)] = decodeURIComponent(v ?? '');
+      [url.split('?')[1]?.split('#')[0], url.split('#')[1]].forEach((part) => {
+        if (!part) return;
+        part.split('&').forEach((kv) => {
+          const [k, v] = kv.split('=');
+          if (k) params[decodeURIComponent(k)] = decodeURIComponent(v ?? '');
+        });
       });
-      if (params.type === 'recovery' && params.access_token) {
-        try {
+
+      try {
+        if (params.token_hash) {
+          await supabase.auth.verifyOtp({
+            token_hash: params.token_hash,
+            type: (params.type ?? 'recovery') as 'recovery',
+          });
+        } else if (params.access_token) {
           await supabase.auth.setSession({
             access_token: params.access_token,
             refresh_token: params.refresh_token ?? '',
           });
-        } catch {
-          // session invalide/expirée — l'écran affichera une erreur au submit
+        } else if (params.code) {
+          await supabase.auth.exchangeCodeForSession(params.code);
+        } else {
+          return;
         }
-        router.replace('/(auth)/reset-password');
+      } catch {
+        // Lien invalide/expiré — l'écran affichera l'erreur au moment de valider
       }
+
+      router.replace('/(auth)/reset-password');
     };
 
     Linking.getInitialURL().then(handleUrl);
