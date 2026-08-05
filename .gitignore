@@ -40,3 +40,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Journaux de build/soumission EAS
+build-*.log
+submit-*.log

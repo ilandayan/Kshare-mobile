@@ -148,7 +148,7 @@ export default function NotificationsPage() {
                     {item.commerce_city ? ` · ${item.commerce_city}` : ''}
                   </Text>
                   <Text style={styles.itemSubtitle} numberOfLines={1}>
-                    {BASKET_TYPE_LABELS[item.type] ?? item.type} ·{' '}
+                    {BASKET_TYPE_LABELS[item.type]?.label ?? item.type} ·{' '}
                     {item.day === 'today' ? "Aujourd'hui" : 'Demain'} ·{' '}
                     {item.pickup_start} – {item.pickup_end}
                   </Text>

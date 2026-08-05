@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kshare",
     "slug": "kshare",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -43,7 +43,7 @@
           }
         ]
       },
-      "buildNumber": "12",
+      "buildNumber": "13",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleLocalizations": [
@@ -64,7 +64,7 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundColor": "#3744C8"
       },
-      "versionCode": 2,
+      "versionCode": 3,
       "package": "app.kshare.fr",
       "googleServicesFile": "./google-services.json",
       "config": {
