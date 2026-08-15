@@ -35,6 +35,8 @@ function getCommerceIcon(type: string | null | undefined): keyof typeof Material
 }
 
 // ── Types ────────────────────────────────────────────────────────
+// Forme renvoyée par la fonction SQL `dons_disponibles` : à plat, le tri et le
+// calcul de distance étant faits en base.
 interface DonBasket {
   id: string;
   type: BasketType;
@@ -44,19 +46,27 @@ interface DonBasket {
   pickup_start: string;
   pickup_end: string;
   day: string;
-  commerces: {
-    name: string;
-    address: string;
-    city: string;
-    postal_code: string | null;
-    commerce_type: string | null;
-  } | null;
+  commerce_name: string | null;
+  commerce_address: string | null;
+  commerce_city: string | null;
+  commerce_postal_code: string | null;
+  commerce_type: string | null;
+  distance_km: number | null;
+  /** Panier que le commerçant a réservé en priorité à cette association. */
+  exclusif: boolean;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+// `pickup_start` est une colonne `time`, donc « 18:00:00 » — pas une date.
+// `new Date('18:00:00')` ne donne rien d'exploitable en JavaScript, et les
+// horaires s'affichaient « Invalid Date ».
+function formatTime(heure: string): string {
+  return heure ? heure.substring(0, 5) : '';
+}
+
+function formatDistance(km: number | null): string {
+  if (km === null) return '';
+  return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`;
 }
 
 function formatDay(day: string): string {
@@ -64,14 +74,8 @@ function formatDay(day: string): string {
 }
 
 // ── Fetch ────────────────────────────────────────────────────────
-async function fetchAssoDepartment(userId: string): Promise<string | null> {
-  const { data } = await supabase
-    .from('associations')
-    .select('department')
-    .eq('profile_id', userId)
-    .single();
-  return data?.department ?? null;
-}
+/** Rayon de recherche autour de l'association, en kilomètres. */
+const RAYON_KM = 50;
 
 async function fetchAssoId(userId: string): Promise<string | null> {
   const { data } = await supabase
@@ -82,19 +86,18 @@ async function fetchAssoId(userId: string): Promise<string | null> {
   return data?.id ?? null;
 }
 
-async function fetchDonBaskets(department: string): Promise<DonBasket[]> {
-  const { data, error } = await supabase
-    .from('baskets')
-    .select(`
-      id, type, description, quantity_total, quantity_reserved,
-      pickup_start, pickup_end, day,
-      commerces!inner(name, address, city, postal_code, commerce_type)
-    `)
-    .eq('is_donation', true)
-    .eq('status', 'published')
-    .gte('quantity_total', 1)
-    .like('commerces.postal_code', `${department}%`)
-    .order('pickup_start', { ascending: true });
+/**
+ * Les paniers dons à portée.
+ *
+ * Le tri se fait en base : le rayon, l'exclusivité de deux heures accordée par
+ * un commerçant à une association, et le classement. Le découpage précédent se
+ * faisait par département, si bien qu'un commerce de Levallois restait
+ * invisible pour une association du 75 à trois kilomètres.
+ */
+async function fetchDonBaskets(): Promise<DonBasket[]> {
+  const { data, error } = await supabase.rpc('dons_disponibles', {
+    p_rayon_km: RAYON_KM,
+  });
 
   if (error) throw error;
   return (data ?? []) as unknown as DonBasket[];
@@ -119,12 +122,6 @@ export default function DonsScreen() {
   const user = useAppStore((s) => s.user);
   const queryClient = useQueryClient();
 
-  const { data: department, isLoading: loadingDept } = useQuery({
-    queryKey: ['asso-department', user?.id],
-    queryFn: () => fetchAssoDepartment(user!.id),
-    enabled: !!user,
-  });
-
   const { data: assoId } = useQuery({
     queryKey: ['asso-id', user?.id],
     queryFn: () => fetchAssoId(user!.id),
@@ -137,9 +134,9 @@ export default function DonsScreen() {
     refetch,
     isRefetching,
   } = useQuery({
-    queryKey: ['don-baskets', department],
-    queryFn: () => fetchDonBaskets(department!),
-    enabled: !!department,
+    queryKey: ['don-baskets'],
+    queryFn: fetchDonBaskets,
+    enabled: !!user,
   });
 
   const reserveMutation = useMutation({
@@ -164,7 +161,7 @@ export default function DonsScreen() {
     refetch();
   }, [refetch]);
 
-  if (loadingDept || isLoading) {
+  if (isLoading) {
     return (
       <View style={[styles.center, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color="#2a9d6e" />
@@ -175,7 +172,6 @@ export default function DonsScreen() {
   const renderItem = ({ item }: { item: DonBasket }) => {
     const typeInfo = BASKET_TYPE_LABELS[item.type];
     const remaining = item.quantity_total - item.quantity_reserved;
-    const commerce = item.commerces;
 
     return (
       <View style={styles.card}>
@@ -186,21 +182,35 @@ export default function DonsScreen() {
           <Text style={styles.dayBadge}>{formatDay(item.day)}</Text>
         </View>
 
+        {/* Panier que le commerçant a réservé en priorité à cette association.
+            La mention dit aussi que la priorité s'éteint, sans quoi rien ne
+            presserait de venir. */}
+        {item.exclusif && (
+          <View style={styles.prioriteBandeau}>
+            <Ionicons name="star" size={13} color="#8A6D0B" />
+            <Text style={styles.prioriteTexte}>
+              Réservé en priorité pour vous pendant 2 h
+            </Text>
+          </View>
+        )}
+
         {/* Commerce */}
         <View style={styles.commerceRow}>
           <View style={[styles.commerceIcon, { backgroundColor: typeInfo.bgColor }]}>
             <MaterialCommunityIcons
-              name={getCommerceIcon(commerce?.commerce_type)}
+              name={getCommerceIcon(item.commerce_type)}
               size={22}
               color="#9CA3AF"
             />
           </View>
           <View style={styles.commerceInfo}>
             <Text style={styles.commerceName} numberOfLines={1}>
-              {commerce?.name ?? 'Commerce'}
+              {item.commerce_name ?? 'Commerce'}
             </Text>
             <Text style={styles.commerceAddress} numberOfLines={1}>
-              {commerce?.city ?? ''}
+              {[item.commerce_city, formatDistance(item.distance_km)]
+                .filter(Boolean)
+                .join(' · ')}
             </Text>
           </View>
         </View>
@@ -252,7 +262,7 @@ export default function DonsScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Dons disponibles</Text>
         <Text style={styles.subtitle}>
-          Département {department ?? '—'} · {available.length} panier{available.length !== 1 ? 's' : ''}
+          À moins de {RAYON_KM} km · {available.length} panier{available.length !== 1 ? 's' : ''}
         </Text>
       </View>
 
@@ -261,7 +271,8 @@ export default function DonsScreen() {
           <Ionicons name="gift-outline" size={64} color="#D1D5DB" />
           <Text style={styles.emptyTitle}>Aucun don disponible</Text>
           <Text style={styles.emptyText}>
-            Les paniers dons de votre département apparaîtront ici.
+            Les paniers dons proposés à moins de {RAYON_KM} km de votre
+            association apparaîtront ici.
           </Text>
         </View>
       ) : (
@@ -339,6 +350,18 @@ const styles = StyleSheet.create({
   commerceInfo: { flex: 1 },
   commerceName: { fontSize: 15, fontWeight: '600', color: '#111827' },
   commerceAddress: { fontSize: 13, color: '#6B7280', marginTop: 1 },
+
+  prioriteBandeau: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF6DC',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  prioriteTexte: { fontSize: 12, fontWeight: '600', color: '#8A6D0B' },
 
   description: { fontSize: 13, color: '#6B7280', marginBottom: 10, lineHeight: 18 },
 
