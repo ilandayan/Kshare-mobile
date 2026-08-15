@@ -136,6 +136,21 @@ export default function CommandePage() {
     setShowRating(true);
     queryClient.invalidateQueries({ queryKey: ['order', id] });
     queryClient.invalidateQueries({ queryKey: ['orders'] });
+
+    // « Encore un panier sauvé » suppose un panier précédent. On compte les
+    // retraits du client pendant qu'il attend déjà la confirmation : la requête
+    // se glisse dans un temps mort, rien ne s'affiche puis ne se réécrit.
+    let premier = '0';
+    if (order.client_id) {
+      const { count } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('client_id', order.client_id)
+        .eq('status', 'picked_up');
+      if ((count ?? 0) <= 1) premier = '1';
+    }
+
+    router.push({ pathname: '/merci', params: { type: 'achat', premier } });
   };
 
   const handleOpenMaps = () => {

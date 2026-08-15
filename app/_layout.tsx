@@ -197,6 +197,17 @@ function RootLayoutInner() {
             presentation: 'card',
           }}
         />
+        {/* Écran de remerciement : on ne revient pas dessus par un geste de
+            retour, et il n'a pas d'en-tête — c'est un instant, pas une page. */}
+        <Stack.Screen
+          name="merci"
+          options={{
+            headerShown: false,
+            gestureEnabled: false,
+            presentation: 'card',
+            contentStyle: { backgroundColor: '#FBFCFF' },
+          }}
+        />
         <Stack.Screen
           name="profil/edit"
           options={{

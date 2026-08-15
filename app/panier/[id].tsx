@@ -226,16 +226,10 @@ export default function BasketDetailPage() {
               });
 
               if (result.success) {
-                Alert.alert(
-                  'Merci pour votre don ! 🎁',
-                  'Votre Mitzvah sera remise à une association partenaire. Que votre générosité soit bénie !',
-                  [
-                    {
-                      text: 'Voir mes dons',
-                      onPress: () => router.replace('/(tabs)/paniers'),
-                    },
-                  ],
-                );
+                // Le donateur n'a pas de retrait à venir : le paiement est son
+                // seul moment. On lui donne un écran, pas une boîte de dialogue
+                // système.
+                router.replace({ pathname: '/merci', params: { type: 'don' } });
               }
             } catch (err) {
               const message = err instanceof Error ? err.message : 'Une erreur est survenue.';
