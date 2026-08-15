@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { openExternalUrl } from '@/lib/linking';
 import { BasketTypeBadge } from '@/components/BasketTypeBadge';
 import { BASKET_TYPE_LABELS, type Order } from '@/lib/types';
 import { isMockOrderId } from '@/lib/mockOrders';
+import { etatCreneau, formaterCompteARebours } from '@/lib/pickupWindow';
 async function fetchOrder(id: string): Promise<Order | null> {
   const { data, error } = await supabase
     .from('orders')
@@ -96,6 +97,15 @@ export default function CommandePage() {
   const [pickupConfirmed, setPickupConfirmed] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [ratingDone, setRatingDone] = useState(false);
+  // Rafraîchi chaque seconde pour animer le compte à rebours, et surtout pour
+  // que le QR code apparaisse tout seul à l'ouverture du créneau, sans que le
+  // client ait à quitter l'écran et y revenir.
+  const [maintenant, setMaintenant] = useState(() => new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setMaintenant(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', id],
@@ -198,6 +208,13 @@ export default function CommandePage() {
 
   const qrValue = order.qr_code_token ?? order.id;
 
+  // Le QR code et la confirmation n'existent que pendant le créneau. Les
+  // ouvrir plus tôt permettait de confirmer une réception depuis chez soi, le
+  // matin, ce qui vide de sa valeur la preuve dont on se sert face à une
+  // contestation bancaire.
+  const creneau = etatCreneau(pickupDateStr, pickupStartTime, pickupEndTime, maintenant);
+  const creneauOuvert = creneau.phase === 'pendant' || creneau.phase === 'indetermine';
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView
@@ -224,8 +241,38 @@ export default function CommandePage() {
           </Text>
         </View>
 
-        {/* QR Code section + swipe confirm */}
-        {order.status !== 'cancelled_admin' && order.status !== 'refunded' && order.status !== 'no_show' && !pickupConfirmed && order.status !== 'picked_up' && (
+        {/* Avant l'ouverture : compte à rebours, ni QR ni confirmation */}
+        {order.status !== 'cancelled_admin' && order.status !== 'refunded' && order.status !== 'no_show' && !pickupConfirmed && order.status !== 'picked_up' && creneau.phase === 'avant' && (
+          <View style={styles.qrSection}>
+            <Text style={styles.qrTitle}>Retrait à venir</Text>
+            <Text style={styles.countdown}>{formaterCompteARebours(creneau.msRestants)}</Text>
+            <Text style={styles.qrSubtitle}>
+              Votre QR code apparaîtra ici à {timeStart}, à l&apos;ouverture du créneau de retrait.
+            </Text>
+          </View>
+        )}
+
+        {/* Après la fermeture : plus de retrait possible */}
+        {order.status !== 'cancelled_admin' && order.status !== 'refunded' && order.status !== 'no_show' && !pickupConfirmed && order.status !== 'picked_up' && creneau.phase === 'apres' && (
+          <View style={styles.qrSection}>
+            <Text style={styles.qrTitle}>Créneau de retrait terminé</Text>
+            <Text style={styles.qrSubtitle}>
+              Le créneau s&apos;est achevé à {pickupEnd}. Si vous n&apos;avez pas pu récupérer
+              votre panier, signalez-le nous.
+            </Text>
+            <TouchableOpacity
+              style={styles.helpBtn}
+              onPress={() => router.push(`/commande/signaler?orderId=${order.id}`)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="help-circle-outline" size={18} color="#EF4444" />
+              <Text style={styles.helpBtnText}>Signaler un problème</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Pendant le créneau : QR Code + swipe confirm */}
+        {order.status !== 'cancelled_admin' && order.status !== 'refunded' && order.status !== 'no_show' && !pickupConfirmed && order.status !== 'picked_up' && creneauOuvert && (
           <View style={styles.qrSection}>
             <Text style={styles.qrTitle}>QR Code de retrait</Text>
             <Text style={styles.qrSubtitle}>
@@ -516,6 +563,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6b7280',
     textAlign: 'center',
+  },
+  countdown: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#3744C8',
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
+    marginVertical: 4,
   },
   section: {
     gap: 10,
