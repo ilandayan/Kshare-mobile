@@ -63,6 +63,33 @@ async function registerForPushNotifications(): Promise<string | null> {
   return tokenData.data;
 }
 
+/** Attentes entre deux tentatives, en millisecondes. */
+const REPRISES_MS = [2000, 8000];
+
+/**
+ * Obtient le jeton en réessayant, car le service d'Expo répond parfois 504.
+ *
+ * Sans reprise, un utilisateur qui ouvre l'application pendant une panne
+ * passagère d'Expo n'est jamais enregistré : il ne reçoit plus aucune
+ * notification jusqu'à sa prochaine connexion, et rien ne le lui dit. L'échec
+ * remontait par ailleurs dans Sentry comme un défaut de l'application, alors
+ * qu'il vient d'un service tiers.
+ */
+async function obtenirJetonAvecReprises(): Promise<string | null> {
+  for (let essai = 0; essai <= REPRISES_MS.length; essai += 1) {
+    try {
+      return await registerForPushNotifications();
+    } catch {
+      const attente = REPRISES_MS[essai];
+      // Dernier essai épuisé : on renonce sans bruit. L'utilisateur n'a rien à
+      // faire, et la prochaine ouverture de session retentera.
+      if (attente === undefined) return null;
+      await new Promise((resoudre) => setTimeout(resoudre, attente));
+    }
+  }
+  return null;
+}
+
 async function savePushToken(token: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
@@ -98,11 +125,16 @@ export function usePushNotifications() {
   // taux de refus élevé lié à une demande hors contexte.
   useEffect(() => {
     if (!session) return;
-    registerForPushNotifications().then((token) => {
-      if (token) {
-        savePushToken(token);
-      }
-    });
+    // Aucun `catch` ici auparavant : un rejet devenait une erreur non gérée,
+    // signalée dans Sentry, et le jeton n'était jamais réessayé.
+    obtenirJetonAvecReprises()
+      .then((token) => {
+        if (token) return savePushToken(token);
+      })
+      .catch(() => {
+        // L'enregistrement du jeton n'est pas critique pour l'usage de
+        // l'application : on n'interrompt rien.
+      });
   }, [session]);
 
   useEffect(() => {
