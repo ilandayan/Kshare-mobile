@@ -228,7 +228,13 @@ export default function CommandePage() {
   // matin, ce qui vide de sa valeur la preuve dont on se sert face à une
   // contestation bancaire.
   const creneau = etatCreneau(pickupDateStr, pickupStartTime, pickupEndTime, maintenant);
-  const creneauOuvert = creneau.phase === 'pendant' || creneau.phase === 'indetermine';
+  // La tolérance compte comme ouverte : le serveur accepte encore le retrait
+  // pendant une demi-heure après la fermeture, retirer le bouton ici ferait
+  // compter absent un client qui est venu.
+  const creneauOuvert =
+    creneau.phase === 'pendant' ||
+    creneau.phase === 'tolerance' ||
+    creneau.phase === 'indetermine';
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -289,6 +295,17 @@ export default function CommandePage() {
         {/* Pendant le créneau : QR Code + swipe confirm */}
         {order.status !== 'cancelled_admin' && order.status !== 'refunded' && order.status !== 'no_show' && !pickupConfirmed && order.status !== 'picked_up' && creneauOuvert && (
           <View style={styles.qrSection}>
+            {/* Créneau clos mais tolérance en cours : on le dit, sinon le client
+                croit être encore dans les temps et prend son temps. */}
+            {creneau.phase === 'tolerance' && (
+              <View style={styles.retardBandeau}>
+                <Ionicons name="time-outline" size={15} color="#8A6D0B" />
+                <Text style={styles.retardTexte}>
+                  Créneau terminé à {pickupEnd}. Dépêchez-vous, il vous reste{' '}
+                  {formaterCompteARebours(creneau.msRestants)} pour récupérer votre panier.
+                </Text>
+              </View>
+            )}
             <Text style={styles.qrTitle}>QR Code de retrait</Text>
             <Text style={styles.qrSubtitle}>
               {isMock
@@ -578,6 +595,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6b7280',
     textAlign: 'center',
+  },
+  retardBandeau: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 7,
+    backgroundColor: '#FEF6DC',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 14,
+  },
+  retardTexte: {
+    flex: 1,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '600',
+    color: '#8A6D0B',
   },
   countdown: {
     fontSize: 34,
