@@ -160,7 +160,7 @@ function RootLayoutInner() {
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(asso-tabs)" />
+        <Stack.Screen name="espace-association" options={{ gestureEnabled: false }} />
         <Stack.Screen
           name="panier/[id]"
           options={{

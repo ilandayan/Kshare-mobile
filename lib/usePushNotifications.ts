@@ -124,8 +124,9 @@ export function usePushNotifications() {
         } else if (data?.orderId) {
           const userRole = useAppStore.getState().userRole;
           if (userRole === 'association') {
-            // Associations go to their reservations tab
-            router.push('/(asso-tabs)/reservations');
+            // L'espace association est sur le site : cet écran y renvoie plutôt
+            // que d'ouvrir une commande que l'application ne sait plus afficher.
+            router.push('/espace-association');
           } else {
             // Clients go to order detail
             router.push(`/commande/${data.orderId}`);

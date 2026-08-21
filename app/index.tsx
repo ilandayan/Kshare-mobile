@@ -17,9 +17,11 @@ export default function IndexPage() {
     return <Redirect href="/(auth)/connexion" />;
   }
 
-  // Route based on user role
+  // L'espace association vit sur le site, pas dans l'application : on renvoie
+  // vers le bon endroit plutôt que d'entretenir ici une seconde interface que
+  // personne n'ouvre et qui finit par diverger de celle du web.
   if (userRole === 'association') {
-    return <Redirect href="/(asso-tabs)" />;
+    return <Redirect href="/espace-association" />;
   }
 
   // Default: client tabs
