@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Platform, TouchableOpacity, View, Linking } from 'react-native';
+import { Platform, TouchableOpacity, View, Linking, Alert } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -105,6 +105,33 @@ function RootLayoutInner() {
 
     return () => subscription.unsubscribe();
   }, [setSession, setLoading, setUserRole]);
+
+  // Aiguillage selon le rôle, une fois celui-ci connu.
+  //
+  // Il ne peut pas vivre dans l'écran d'entrée : le rôle est lu après
+  // l'ouverture de la session, et l'écran d'entrée a déjà redirigé vers les
+  // onglets clients quand il arrive. D'où un effet ici, qui réagit à l'arrivée
+  // du rôle quel que soit l'écran affiché.
+  //
+  // L'écran de connexion refuse déjà les comptes non clients, mais un lien de
+  // réinitialisation de mot de passe ouvre une session sans passer par lui.
+  const userRole = useAppStore((s) => s.userRole);
+  useEffect(() => {
+    if (userRole === 'association') {
+      router.replace('/espace-association');
+    } else if (userRole === 'commerce' || userRole === 'admin') {
+      // Commerçants, employés (`@equipe.k-share.fr`) et administrateurs
+      // travaillent sur le site : on ferme la session plutôt que de les laisser
+      // sur une interface client qui ne les concerne pas.
+      supabase.auth.signOut().finally(() => {
+        router.replace('/(auth)/connexion');
+        Alert.alert(
+          'Accès non autorisé',
+          "L'application mobile Kshare est réservée aux clients. Les commerçants et administrateurs utilisent le site k-share.fr.",
+        );
+      });
+    }
+  }, [userRole]);
 
   // Deep link de réinitialisation de mot de passe (kshare://reset-password#...).
   // Supabase renvoie les tokens dans le fragment de l'URL : on ouvre la session
