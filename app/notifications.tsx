@@ -41,7 +41,9 @@ async function fetchNotificationBaskets(commerceIds: string[]): Promise<NotifBas
   if (error) throw error;
 
   const baskets: NotifBasket[] = [];
-  for (const b of (data ?? []) as Array<Basket & { commerces: { name: string; city: string | null } }>) {
+  // Sans types générés, Supabase infère `commerces` comme un tableau ; pour une
+  // relation plusieurs-vers-un, il renvoie bien un objet.
+  for (const b of (data ?? []) as unknown as Array<Basket & { commerces: { name: string; city: string | null } | null }>) {
     const remaining = b.quantity_total - b.quantity_reserved - b.quantity_sold;
     if (remaining > 0) {
       baskets.push({
