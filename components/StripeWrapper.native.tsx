@@ -16,7 +16,7 @@ export function StripeWrapper({ children }: { children: React.ReactNode }) {
       urlScheme="kshare"
       setReturnUrlSchemeOnAndroid
     >
-      {children}
+      <>{children}</>
     </StripeProvider>
   );
 }

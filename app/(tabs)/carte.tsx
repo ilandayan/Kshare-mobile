@@ -17,6 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import { useAppStore } from '@/lib/store';
+import type MapViewType from 'react-native-maps';
 
 // react-native-maps only works on native (iOS/Android), not web
 let MapView: any = null;
@@ -177,7 +178,7 @@ export default function CartePage() {
     : null;
   const [locationError, setLocationError] = useState(false);
   const [radiusKm, setRadiusKm] = useState<number>(1);
-  const mapRef = React.useRef<MapView>(null);
+  const mapRef = React.useRef<MapViewType>(null);
 
   // Request location si pas encore connue (sinon utilise celle du store partagée avec home)
   useEffect(() => {

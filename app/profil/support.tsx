@@ -94,7 +94,10 @@ export default function SupportPage() {
         });
         setOrders(mapped);
       })
-      .finally(() => setLoadingOrders(false));
+      .then(
+        () => setLoadingOrders(false),
+        () => setLoadingOrders(false),
+      );
   }, [category, user?.id]);
 
   const handleSubmit = async () => {
