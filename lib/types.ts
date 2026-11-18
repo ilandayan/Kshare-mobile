@@ -77,6 +77,7 @@ export interface Order {
       city: string;
       postal_code: string | null;
       logo_url: string | null;
+      photos: string[] | null;
       commerce_type: string | null;
     } | null;
   } | null;
