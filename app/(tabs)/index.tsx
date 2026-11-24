@@ -19,9 +19,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 // expo-location: only used on native platforms
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { CommerceCard } from '@/components/CommerceCard';
+import { RecruitmentBanner } from '@/components/RecruitmentBanner';
+import { PLATFORM_LAUNCH_KEY, usePlatformLaunch } from '@/lib/usePlatformLaunch';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Basket, BasketType } from '@/lib/types';
 import { trackEvent, MixpanelEvents } from '@/lib/mixpanel';
@@ -279,11 +281,18 @@ export default function AccueilPage() {
     outputRange: [0, 380],
   });
 
+  const queryClient = useQueryClient();
+  const { data: platformLaunch } = usePlatformLaunch();
+  const preLaunch = platformLaunch?.launched === false;
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refetch();
+    await Promise.all([
+      refetch(),
+      queryClient.invalidateQueries({ queryKey: PLATFORM_LAUNCH_KEY }),
+    ]);
     setRefreshing(false);
-  }, [refetch]);
+  }, [refetch, queryClient]);
 
   // Filter baskets by category + commerce type + distance (si user position connue)
   const displayed = (baskets ?? []).filter((b) => {
@@ -547,6 +556,8 @@ export default function AccueilPage() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3744C8" />
         }
       >
+        <RecruitmentBanner />
+
         {/* ── Section header ── */}
         <View style={styles.availRow}>
           <Text style={styles.availLabel}>
@@ -564,7 +575,9 @@ export default function AccueilPage() {
             <Text style={styles.emptyEmoji}>🌙</Text>
             <Text style={styles.emptyTitle}>Pas de paniers disponibles</Text>
             <Text style={styles.emptySubtitle}>
-              Revenez plus tard ou essayez une autre catégorie.
+              {preLaunch
+                ? 'Les paniers apparaîtront ici dès que nos premiers commerces partenaires auront rejoint Kshare.'
+                : 'Revenez plus tard ou essayez une autre catégorie.'}
             </Text>
           </View>
         ) : (
