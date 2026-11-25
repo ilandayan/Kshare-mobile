@@ -23,6 +23,7 @@ import { useAppStore } from '@/lib/store';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { UserProfile } from '@/lib/types';
 import { openExternalUrl } from '@/lib/linking';
+import { devenirPartenaire, recommanderUnCommerce } from '@/lib/partnerLinks';
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 async function fetchProfile(userId: string): Promise<(UserProfile & { notif_push?: boolean }) | null> {
@@ -301,12 +302,12 @@ export default function ProfilPage() {
           <ProfileRow
             icon="storefront-outline"
             label="Devenir partenaire"
-            onPress={() => openExternalUrl('https://k-share.fr')}
+            onPress={devenirPartenaire}
           />
           <ProfileRow
             icon="share-social-outline"
             label="Recommander un commerce"
-            onPress={() => openExternalUrl('mailto:contact@k-share.fr?subject=Recommandation%20commerce')}
+            onPress={recommanderUnCommerce}
           />
           <ProfileRow
             icon="help-circle-outline"
