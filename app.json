@@ -43,7 +43,7 @@
           }
         ]
       },
-      "buildNumber": "18",
+      "buildNumber": "19",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleLocalizations": [
@@ -64,7 +64,7 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundColor": "#3744C8"
       },
-      "versionCode": 8,
+      "versionCode": 9,
       "package": "app.kshare.fr",
       "googleServicesFile": "./google-services.json",
       "config": {
