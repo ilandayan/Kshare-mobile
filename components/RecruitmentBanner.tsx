@@ -34,20 +34,20 @@ export function RecruitmentBanner() {
       </Text>
       <View style={styles.actions}>
         <TouchableOpacity
-          style={[styles.button, styles.buttonPrimary]}
+          style={[styles.button, styles.buttonSecondary]}
           onPress={recommanderUnCommerce}
           accessibilityRole="button"
           activeOpacity={0.85}
         >
-          <Text style={[styles.buttonText, styles.buttonTextPrimary]}>Recommander un commerce</Text>
+          <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Recommander un commerce</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.button, styles.buttonSecondary]}
+          style={[styles.button, styles.buttonPrimary]}
           onPress={devenirPartenaire}
           accessibilityRole="button"
           activeOpacity={0.85}
         >
-          <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Devenir partenaire</Text>
+          <Text style={[styles.buttonText, styles.buttonTextPrimary]}>Devenir partenaire</Text>
         </TouchableOpacity>
       </View>
     </View>
